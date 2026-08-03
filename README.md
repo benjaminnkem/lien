@@ -1,159 +1,78 @@
-# Turborepo starter
+# Lien
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Lien** (LienZero) is a pre-mint and pre-collateralization firewall for Real-World Assets (RWAs). It prevents the same real-world asset — especially invoices and receivables — from being tokenized or pledged multiple times across platforms or chains.
 
-## Using this example
+Built for the **Cleanverse Hackathon** with deep integration of **CVI** (identity) and **CVA** (verified assets).
 
-Run the following command:
+## Monorepo structure
 
-```sh
-npx create-turbo@latest
+```
+apps/
+  web/          → Next.js frontend (App Router, Tailwind, wagmi, RainbowKit)
+  api/          → NestJS backend (TypeORM + PostgreSQL)
+packages/
+  sdk/          → Shared types, fingerprint utilities (@repo/sdk)
+  ui/           → Shared React primitives (@repo/ui)
+  typescript-config/
+  eslint-config/
 ```
 
-## What's inside?
+## Prerequisites
 
-This Turborepo includes the following packages/apps:
+- Node.js ≥ 20
+- [pnpm](https://pnpm.io/) 9
+- Docker (for PostgreSQL)
 
-### Apps and Packages
+## Quick start
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+```bash
+# Install dependencies
+pnpm install
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+# Start PostgreSQL
+pnpm db:up
 
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+# Build shared packages, then run web + api
+pnpm dev
 ```
 
-Without global `turbo`, use your package manager:
+| Service   | URL                          |
+|-----------|------------------------------|
+| Web       | http://localhost:3000        |
+| API       | http://localhost:3001/api    |
+| Health    | http://localhost:3001/api/health |
+| Postgres  | localhost:5433 (user/pass/db: `lien`) |
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
-```
+### Env files
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Copy examples if needed:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+- `apps/api/.env.example` → `apps/api/.env`
+- `apps/web/.env.example` → `apps/web/.env.local`
 
-```sh
-turbo build --filter=docs
-```
+Optional: set a real [WalletConnect Cloud](https://cloud.walletconnect.com/) project id in `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`.
 
-Without global `turbo`:
+## Scripts
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+| Command        | Description                          |
+|----------------|--------------------------------------|
+| `pnpm dev`     | Dev servers for web + api (+ sdk)    |
+| `pnpm build`   | Build all packages and apps          |
+| `pnpm db:up`   | Start Postgres via Docker Compose    |
+| `pnpm db:down` | Stop Postgres                        |
+| `pnpm lint`    | Lint all packages                    |
 
-### Develop
+## Stack
 
-To develop all apps and packages, run the following command:
+- **Frontend:** Next.js 16, TypeScript, Tailwind CSS 4, RainbowKit, wagmi, viem, TanStack Query, Zod
+- **Backend:** NestJS 11, TypeORM, PostgreSQL, class-validator
+- **Shared:** `@repo/sdk` (fingerprint + types), Turborepo monorepo
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## MVP roadmap (next)
 
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+1. Asset fingerprint API + UI form  
+2. Encumbrance registry (Postgres + on-chain)  
+3. CVA mint gate (Cleanverse adapter)  
+4. Lien registration on finance  
+5. Issuer / Lender / Compliance dashboards  
+6. Hardhat contracts (`apps/contracts`)

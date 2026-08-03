@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lien-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: lien
+      POSTGRES_PASSWORD: lien
+      POSTGRES_DB: lien
+    volumes:
+      - lien_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lien -d lien"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lien_pg_data:
