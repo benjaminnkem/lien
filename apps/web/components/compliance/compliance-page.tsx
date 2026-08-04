@@ -10,9 +10,13 @@ import {
   ClipboardCheck,
   FileClock,
   FileKey2,
+  FileJson,
   Fingerprint,
   Landmark,
   ListChecks,
+  LoaderCircle,
+  Play,
+  Download,
   Search,
   SearchCheck,
   ShieldCheck,
@@ -20,7 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CopyButton } from "@/components/copy-button";
@@ -40,9 +44,18 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAssets, useAuditEvents } from "@/hooks/use-assets";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useAssets, useAuditEvents, useSeedDemo } from "@/hooks/use-assets";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { getApiErrorMessage } from "@/lib/api";
+import { getApiErrorMessage, getAuditExportUrl } from "@/lib/api";
 import type { AuditEvent, AuditEventType } from "@/lib/asset-types";
 import { cn } from "@/lib/utils";
 import { useDemoStore } from "@/stores/demo-store";
@@ -113,6 +126,14 @@ const eventMeta: Record<
     iconClass: "bg-teal-100 text-teal-700",
     ringClass: "ring-teal-200",
   },
+  CVI_VERIFICATION_FAILED: {
+    label: "CVI verification failed",
+    description:
+      "The party failed the Cleanverse A-Pass gate and the protected action was denied.",
+    icon: ShieldX,
+    iconClass: "bg-rose-100 text-rose-700",
+    ringClass: "ring-rose-200",
+  },
 };
 
 function formatTimestamp(value: string) {
@@ -147,10 +168,16 @@ export function CompliancePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auditQuery = useAuditEvents(activeFingerprint);
   const assetsQuery = useAssets();
+  const seedDemo = useSeedDemo();
+  const loadSeed = useDemoStore((state) => state.loadSeed);
+  const [seedOpen, setSeedOpen] = useState(false);
 
   const form = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
     defaultValues: { fingerprint: demoFingerprint ?? "" },
+  });
+  const seedForm = useForm<{ includeConflict: boolean }>({
+    defaultValues: { includeConflict: true },
   });
 
   useEffect(() => {
@@ -191,6 +218,52 @@ export function CompliancePage() {
     setDrawerOpen(true);
   }
 
+  async function createDemo(values: { includeConflict: boolean }) {
+    try {
+      const result = await seedDemo.mutateAsync(values.includeConflict);
+      const { config } = result;
+      const issuerWallet = config.parties.issuer.wallet;
+      const lenderAWallet = config.parties.lenderA.wallet;
+      const lenderBWallet = config.parties.lenderB.wallet;
+      if (
+        !config.atokenAddress ||
+        !issuerWallet ||
+        !lenderAWallet ||
+        !lenderBWallet
+      ) {
+        throw new Error(
+          "The API returned an incomplete demo identity configuration",
+        );
+      }
+      loadSeed({
+        fingerprint: result.fingerprint.fingerprint,
+        invoiceNumber: result.invoice.invoiceNumber,
+        lienId: result.firstFinance.lien.id,
+        blocked: result.conflict.blocked,
+        config: {
+          chain: config.chain,
+          atokenAddress: config.atokenAddress,
+          issuer: { cvi: config.parties.issuer.cvi, wallet: issuerWallet },
+          lenderA: { cvi: config.parties.lenderA.cvi, wallet: lenderAWallet },
+          lenderB: { cvi: config.parties.lenderB.cvi, wallet: lenderBWallet },
+          debtorCvi: config.debtorCvi,
+        },
+      });
+      setManualFingerprint(result.fingerprint.fingerprint);
+      form.setValue("fingerprint", result.fingerprint.fingerprint);
+      setSeedOpen(false);
+      toast.success("Judge scenario is ready", {
+        description: result.conflict.blocked
+          ? `Three CVIs verified, first lien registered, and duplicate blocked across ${result.auditCount} events.`
+          : `Three sandbox identities loaded and first lien registered across ${result.auditCount} events.`,
+      });
+    } catch (error) {
+      toast.error("Could not seed the demo", {
+        description: getApiErrorMessage(error),
+      });
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <DemoProgress />
@@ -213,43 +286,79 @@ export function CompliancePage() {
             </p>
           </div>
 
-          <form
-            onSubmit={form.handleSubmit(filter)}
-            className="flex w-full max-w-2xl gap-2"
-          >
-            <Field className="gap-1.5">
-              <FieldLabel className="sr-only" htmlFor="audit-fingerprint">
-                Filter by fingerprint
-              </FieldLabel>
-              <div className="relative">
-                <Fingerprint className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="audit-fingerprint"
-                  data-testid="audit-fingerprint"
-                  className="h-11 bg-white/65 pl-9 font-mono text-xs"
-                  placeholder="Filter by 0x fingerprint"
-                  aria-invalid={Boolean(form.formState.errors.fingerprint)}
-                  {...form.register("fingerprint")}
-                />
-              </div>
-              <FieldError errors={[form.formState.errors.fingerprint]} />
-            </Field>
-            <Button type="submit" className="h-11">
-              <Search />
-              <span className="hidden sm:inline">Search</span>
-            </Button>
-            {activeFingerprint && (
+          <div className="flex w-full max-w-2xl flex-col gap-3">
+            <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
               <Button
                 type="button"
-                variant="outline"
-                size="icon-lg"
-                onClick={clearFilter}
-                aria-label="Clear fingerprint filter"
+                onClick={() => setSeedOpen(true)}
+                data-testid="open-demo-seed"
               >
-                <X />
+                <Play />
+                Seed judge scenario
               </Button>
-            )}
-          </form>
+              <Button
+                variant="outline"
+                render={
+                  <a
+                    href={getAuditExportUrl("csv", activeFingerprint)}
+                    download
+                  />
+                }
+              >
+                <Download />
+                CSV
+              </Button>
+              <Button
+                variant="outline"
+                render={
+                  <a
+                    href={getAuditExportUrl("json", activeFingerprint)}
+                    download
+                  />
+                }
+              >
+                <FileJson />
+                JSON
+              </Button>
+            </div>
+            <form
+              onSubmit={form.handleSubmit(filter)}
+              className="flex w-full gap-2"
+            >
+              <Field className="gap-1.5">
+                <FieldLabel className="sr-only" htmlFor="audit-fingerprint">
+                  Filter by fingerprint
+                </FieldLabel>
+                <div className="relative">
+                  <Fingerprint className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="audit-fingerprint"
+                    data-testid="audit-fingerprint"
+                    className="h-11 bg-white/65 pl-9 font-mono text-xs"
+                    placeholder="Filter by 0x fingerprint"
+                    aria-invalid={Boolean(form.formState.errors.fingerprint)}
+                    {...form.register("fingerprint")}
+                  />
+                </div>
+                <FieldError errors={[form.formState.errors.fingerprint]} />
+              </Field>
+              <Button type="submit" className="h-11">
+                <Search />
+                <span className="hidden sm:inline">Search</span>
+              </Button>
+              {activeFingerprint && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-lg"
+                  onClick={clearFilter}
+                  aria-label="Clear fingerprint filter"
+                >
+                  <X />
+                </Button>
+              )}
+            </form>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -478,6 +587,11 @@ export function CompliancePage() {
                   ],
                   ["First-priority lien recorded", hasLien],
                   ["Duplicate financing rejected", hasBlock],
+                  [
+                    "Issuer + lender CVIs verified",
+                    events.filter((event) => event.type === "CVI_VERIFIED")
+                      .length >= 2,
+                  ],
                 ].map(([label, done]) => (
                   <div
                     key={String(label)}
@@ -539,6 +653,88 @@ export function CompliancePage() {
           </aside>
         </div>
       </div>
+
+      <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
+        <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+          <div className="bg-[#102a26] px-6 py-7 text-white">
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-emerald-300 text-[#102a26]">
+              <Play className="size-5" />
+            </span>
+            <DialogHeader className="mt-5">
+              <DialogTitle className="text-2xl text-white">
+                Seed the judge scenario
+              </DialogTitle>
+              <DialogDescription className="leading-6 text-emerald-50/60">
+                Verify three sandbox CVIs, register a new invoice, finance it
+                once, and optionally capture the expected duplicate block.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <form
+            onSubmit={seedForm.handleSubmit(createDemo)}
+            className="space-y-5 px-6 pb-6"
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {["Issuer CVI", "Lender A", "Lender B"].map((label, index) => (
+                <div
+                  key={label}
+                  className="rounded-2xl border border-border bg-muted/35 p-3 text-center"
+                >
+                  <span className="mx-auto flex size-7 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
+                    {index + 1}
+                  </span>
+                  <p className="mt-2 text-xs font-semibold">{label}</p>
+                </div>
+              ))}
+            </div>
+            <Controller
+              name="includeConflict"
+              control={seedForm.control}
+              render={({ field }) => (
+                <label className="flex items-start gap-3 rounded-2xl border border-border p-4">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) => field.onChange(checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold">
+                      Include Lender B conflict
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      Attempts the same fingerprint twice and records
+                      FINANCING_BLOCKED.
+                    </span>
+                  </span>
+                </label>
+              )}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSeedOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={seedDemo.isPending}
+                data-testid="seed-demo"
+              >
+                {seedDemo.isPending ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : (
+                  <Play />
+                )}
+                {seedDemo.isPending
+                  ? "Verifying & seeding…"
+                  : "Create scenario"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Drawer
         open={drawerOpen}

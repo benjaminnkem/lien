@@ -44,7 +44,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAssets, useFinanceAsset } from "@/hooks/use-assets";
+import { useAssets, useDemoConfig, useFinanceAsset } from "@/hooks/use-assets";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ApiError, getApiErrorMessage } from "@/lib/api";
 import type {
@@ -64,18 +64,20 @@ const fingerprintSchema = z.object({
 type FingerprintSearch = z.infer<typeof fingerprintSchema>;
 type LenderIdentity = "a" | "b";
 
-const lenders = {
+const lenderDefaults = {
   a: {
     short: "Lender A",
     name: "Northstar Capital",
     cvi: "cvi:lender:northstar-capital",
     initials: "NC",
+    wallet: "",
   },
   b: {
     short: "Lender B",
     name: "Meridian Credit",
     cvi: "cvi:lender:meridian-credit",
     initials: "MC",
+    wallet: "",
   },
 };
 
@@ -101,6 +103,7 @@ function formatDate(value: string) {
 
 export function LenderPage() {
   const assetsQuery = useAssets();
+  const demoConfig = useDemoConfig();
   const finance = useFinanceAsset();
   const isMobile = useIsMobile();
   const [identity, setIdentity] = useState<LenderIdentity>("a");
@@ -116,6 +119,23 @@ export function LenderPage() {
   const selectFingerprint = useDemoStore((state) => state.selectFingerprint);
   const markFinanced = useDemoStore((state) => state.markFinanced);
   const markBlocked = useDemoStore((state) => state.markBlocked);
+  const lenders = useMemo(() => {
+    const config = demoConfig.data;
+    return {
+      a: {
+        ...lenderDefaults.a,
+        cvi: config?.parties.lenderA.cvi ?? lenderDefaults.a.cvi,
+        name: config?.parties.lenderA.label ?? lenderDefaults.a.name,
+        wallet: config?.parties.lenderA.wallet ?? "",
+      },
+      b: {
+        ...lenderDefaults.b,
+        cvi: config?.parties.lenderB.cvi ?? lenderDefaults.b.cvi,
+        name: config?.parties.lenderB.label ?? lenderDefaults.b.name,
+        wallet: config?.parties.lenderB.wallet ?? "",
+      },
+    };
+  }, [demoConfig.data]);
   const currentLender = lenders[identity];
 
   const form = useForm<FingerprintSearch>({
@@ -176,6 +196,13 @@ export function LenderPage() {
 
   async function financeSelected() {
     if (!selected) return;
+    if (!currentLender.wallet || !selected.atokenAddress) {
+      toast.error("Lender CVI setup required", {
+        description:
+          "Configure the sandbox lender wallet and A-Token on the API before financing.",
+      });
+      return;
+    }
     setFinanceResult(null);
     setBlocked(null);
 
@@ -183,8 +210,9 @@ export function LenderPage() {
       const result = await finance.mutateAsync({
         fingerprint: selected.fingerprint,
         lenderCvi: currentLender.cvi,
+        lenderWallet: currentLender.wallet,
         chain: selected.chain ?? "base",
-        requireCleanverseVerify: false,
+        atokenAddress: selected.atokenAddress,
       });
       setFinanceResult(result);
       markFinanced(result.lien.id);
@@ -206,7 +234,10 @@ export function LenderPage() {
         return;
       }
       toast.error("Financing request failed", {
-        description: getApiErrorMessage(error),
+        description:
+          error instanceof ApiError && error.code?.startsWith("CVI_")
+            ? `${error.code}: ${getApiErrorMessage(error)}`
+            : getApiErrorMessage(error),
       });
     }
   }
@@ -299,6 +330,17 @@ export function LenderPage() {
                         {lender.name}
                       </span>
                     </span>
+                    <span
+                      className={cn(
+                        "relative ml-auto size-2 rounded-full",
+                        lender.wallet ? "bg-emerald-300" : "bg-amber-300",
+                      )}
+                      title={
+                        lender.wallet
+                          ? "Sandbox A-Pass wallet configured"
+                          : "Sandbox wallet missing"
+                      }
+                    />
                   </button>
                 );
               })}
@@ -467,6 +509,15 @@ export function LenderPage() {
                             Demo asset
                           </span>
                         )}
+                        <StatusBadge
+                          label={
+                            asset.issuerVerification
+                              ? "Issuer CVI verified"
+                              : "Issuer unverified"
+                          }
+                          tone={asset.issuerVerification ? "clean" : "blocked"}
+                          className="normal-case"
+                        />
                       </div>
                       <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
                         {asset.fingerprint}
@@ -586,6 +637,12 @@ export function LenderPage() {
                             {blocked.existingLien?.lenderCvi ??
                               "First-priority lender"}
                           </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">
+                            Attempting lender
+                          </span>
+                          <StatusBadge label="CVI verified" tone="clean" />
                         </div>
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-muted-foreground">
@@ -715,11 +772,42 @@ export function LenderPage() {
 
               <div className="mt-6 flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950/70">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-sky-700" />
-                <p className="leading-6">
-                  Demo mode skips live A-Pass verification because no lender
-                  wallet/A-Token was supplied. Cleanverse credentials remain
-                  server-side.
-                </p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-sky-950">
+                      Cleanverse party gate
+                    </p>
+                    <StatusBadge
+                      label={
+                        financeResult?.lenderVerification ||
+                        blocked?.lenderVerification
+                          ? "Lender CVI verified"
+                          : currentLender.wallet && selected.atokenAddress
+                            ? "Ready to verify"
+                            : "Configuration missing"
+                      }
+                      tone={
+                        financeResult?.lenderVerification ||
+                        blocked?.lenderVerification
+                          ? "clean"
+                          : currentLender.wallet && selected.atokenAddress
+                            ? "neutral"
+                            : "blocked"
+                      }
+                      className="normal-case"
+                    />
+                  </div>
+                  <p className="mt-2 leading-6">
+                    Financing calls queryApass and verifyApass for{" "}
+                    {currentLender.name} before the registry can create a lien.
+                    API credentials stay server-side.
+                  </p>
+                  {currentLender.wallet && (
+                    <p className="mt-2 truncate font-mono text-[10px] text-sky-800/65">
+                      {currentLender.wallet}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

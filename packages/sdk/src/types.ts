@@ -61,5 +61,6 @@ export const AuditEventTypeSchema = z.enum([
   "LIEN_REGISTERED",
   "FINANCING_BLOCKED",
   "CVI_VERIFIED",
+  "CVI_VERIFICATION_FAILED",
 ]);
 export type AuditEventType = z.infer<typeof AuditEventTypeSchema>;

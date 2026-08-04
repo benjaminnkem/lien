@@ -1,11 +1,11 @@
-import { plainToInstance } from "class-transformer";
+import { plainToInstance } from 'class-transformer';
 import {
   IsBooleanString,
   IsNumberString,
   IsOptional,
   IsString,
   validateSync,
-} from "class-validator";
+} from 'class-validator';
 
 class EnvironmentVariables {
   @IsOptional()
@@ -71,6 +71,42 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   CLEANVERSE_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_CHAIN?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_ATOKEN_ADDRESS?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_ISSUER_CVI?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_ISSUER_WALLET?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_DEBTOR_CVI?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_LENDER_A_CVI?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_LENDER_A_WALLET?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_LENDER_B_CVI?: string;
+
+  @IsOptional()
+  @IsString()
+  DEMO_LENDER_B_WALLET?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

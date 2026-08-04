@@ -6,6 +6,8 @@ import type {
   Asset,
   AuditEvent,
   CreateFingerprintInput,
+  DemoConfig,
+  DemoSeedResult,
   EncumbranceResult,
   FinanceInput,
   FinanceResult,
@@ -18,7 +20,16 @@ export const assetKeys = {
   auditRoot: () => [...assetKeys.all, "audit"] as const,
   audit: (fingerprint?: string) =>
     [...assetKeys.auditRoot(), fingerprint || "all"] as const,
+  demoConfig: () => ["demo", "config"] as const,
 };
+
+export function useDemoConfig() {
+  return useQuery({
+    queryKey: assetKeys.demoConfig(),
+    queryFn: () => apiGet<DemoConfig>("/demo/config"),
+    staleTime: 60_000,
+  });
+}
 
 export function useAssets() {
   return useQuery({
@@ -81,6 +92,24 @@ export function useFinanceAsset() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: assetKeys.list() }),
         queryClient.invalidateQueries({ queryKey: assetKeys.auditRoot() }),
+      ]);
+    },
+  });
+}
+
+export function useSeedDemo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (includeConflict: boolean) =>
+      apiPost<DemoSeedResult, { includeConflict: boolean }>("/demo/seed", {
+        includeConflict,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: assetKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: assetKeys.auditRoot() }),
+        queryClient.invalidateQueries({ queryKey: assetKeys.demoConfig() }),
       ]);
     },
   });

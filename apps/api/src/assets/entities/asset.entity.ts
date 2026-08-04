@@ -5,56 +5,63 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from "typeorm";
-import type { AssetStatus } from "@repo/sdk";
-import { LienEntity } from "./lien.entity";
-import { AuditEventEntity } from "./audit-event.entity";
+} from 'typeorm';
+import type { AssetStatus } from '@repo/sdk';
+import { LienEntity } from './lien.entity';
+import { AuditEventEntity } from './audit-event.entity';
+import type { PartyVerificationEvidence } from '../party-verification.types';
 
-@Entity("assets")
+@Entity('assets')
 export class AssetEntity {
-  @PrimaryGeneratedColumn("uuid")
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: "varchar", length: 66, unique: true })
+  @Column({ type: 'varchar', length: 66, unique: true })
   fingerprint!: string;
 
-  @Column({ type: "varchar", length: 256 })
+  @Column({ type: 'varchar', length: 256 })
   issuerCvi!: string;
 
-  @Column({ type: "varchar", length: 256 })
+  @Column({ type: 'varchar', length: 256 })
   debtorCvi!: string;
 
-  @Column({ type: "varchar", length: 128 })
+  @Column({ type: 'varchar', length: 128 })
   documentHash!: string;
 
-  @Column({ type: "varchar", length: 128 })
+  @Column({ type: 'varchar', length: 128 })
   invoiceNumber!: string;
 
-  @Column({ type: "varchar", length: 64 })
+  @Column({ type: 'varchar', length: 64 })
   amount!: string;
 
-  @Column({ type: "varchar", length: 3, default: "USD" })
+  @Column({ type: 'varchar', length: 3, default: 'USD' })
   currency!: string;
 
-  @Column({ type: "varchar", length: 32 })
+  @Column({ type: 'varchar', length: 32 })
   dueDate!: string;
 
-  @Column({ type: "varchar", length: 32, default: "fingerprinted" })
+  @Column({ type: 'varchar', length: 32, default: 'fingerprinted' })
   status!: AssetStatus;
 
-  @Column({ type: "varchar", length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 32, nullable: true })
   chain!: string | null;
 
-  @Column({ type: "varchar", length: 128, nullable: true })
+  @Column({ type: 'varchar', length: 128, nullable: true })
   issuerWallet!: string | null;
 
-  @Column({ type: "varchar", length: 128, nullable: true })
+  @Column({ type: 'varchar', length: 128, nullable: true })
   debtorWallet!: string | null;
 
-  @Column({ type: "varchar", length: 128, nullable: true })
+  @Column({ type: 'varchar', length: 128, nullable: true })
   atokenAddress!: string | null;
 
-  @Column({ type: "varchar", length: 128, nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
+  issuerVerification!: PartyVerificationEvidence | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  issuerCviVerifiedAt!: Date | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
   cvaId!: string | null;
 
   @OneToMany(() => LienEntity, (lien) => lien.asset)
@@ -63,9 +70,9 @@ export class AssetEntity {
   @OneToMany(() => AuditEventEntity, (event) => event.asset)
   auditEvents!: AuditEventEntity[];
 
-  @CreateDateColumn({ type: "datetime" })
+  @CreateDateColumn({ type: 'datetime' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "datetime" })
+  @UpdateDateColumn({ type: 'datetime' })
   updatedAt!: Date;
 }

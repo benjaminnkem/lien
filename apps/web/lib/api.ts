@@ -75,4 +75,13 @@ export function getApiErrorMessage(error: unknown): string {
     : "Something went wrong. Please try again.";
 }
 
+export function getAuditExportUrl(
+  format: "csv" | "json",
+  fingerprint?: string,
+) {
+  const search = new URLSearchParams({ format, limit: "200" });
+  if (fingerprint) search.set("fingerprint", fingerprint);
+  return `${API_BASE}/assets/audit/export?${search.toString()}`;
+}
+
 export { API_BASE };

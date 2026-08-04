@@ -1,15 +1,4 @@
-export type CleanverseChain =
-  | "solana"
-  | "base"
-  | "avalanche"
-  | "arbitrum"
-  | "ethereum"
-  | "polygon"
-  | "bsc"
-  | "monad"
-  | "hashkey"
-  | "platon"
-  | string;
+export type CleanverseChain = string;
 
 export type CleanverseEnvelope<T = unknown> = {
   code: string;
@@ -32,13 +21,7 @@ export type WalletInput = {
 };
 
 export type IdentityDataInput = {
-  idType:
-    | "ID_CARD"
-    | "PASSPORT"
-    | "DRIVER_LICENSE"
-    | "HK_MACAO_TAIWAN_PASS"
-    | "RESIDENCE_PERMIT"
-    | string;
+  idType: string;
   fullName: string;
   idNumber?: string;
   validUntil?: string;
@@ -130,13 +113,7 @@ export type RegisterAtokenRequest = {
 export type QueryApplyStatusData = {
   flowType?: string;
   requestId: string;
-  applyStatus:
-    | "PENDING"
-    | "APPROVED"
-    | "ISSUED"
-    | "REJECTED"
-    | "ISSUE_FAILED"
-    | string;
+  applyStatus: string;
   rejectReason?: string;
   issueErrorMsg?: string;
   chain?: string;

@@ -12,6 +12,7 @@ import {
   RefreshCw,
   SearchCheck,
   ShieldCheck,
+  WalletCards,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -35,8 +36,12 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import { useCheckEncumbrance, useCreateFingerprint } from "@/hooks/use-assets";
-import { getApiErrorMessage } from "@/lib/api";
+import {
+  useCheckEncumbrance,
+  useCreateFingerprint,
+  useDemoConfig,
+} from "@/hooks/use-assets";
+import { ApiError, getApiErrorMessage } from "@/lib/api";
 import type { EncumbranceResult, FingerprintResult } from "@/lib/asset-types";
 import { cn } from "@/lib/utils";
 import { useDemoStore } from "@/stores/demo-store";
@@ -52,6 +57,8 @@ const invoiceSchema = z.object({
   currency: z.string().length(3, "Use a 3-letter currency code"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
   chain: z.string().min(1),
+  issuerWallet: z.string().min(8, "Enter the issuer A-Pass wallet"),
+  atokenAddress: z.string().min(8, "Enter the A-Token address"),
 });
 
 type InvoiceForm = z.infer<typeof invoiceSchema>;
@@ -67,6 +74,7 @@ function createInvoiceNumber() {
 export function IssuerPage() {
   const createFingerprint = useCreateFingerprint();
   const checkEncumbrance = useCheckEncumbrance();
+  const demoConfig = useDemoConfig();
   const [fingerprintResult, setFingerprintResult] =
     useState<FingerprintResult | null>(null);
   const [registryResult, setRegistryResult] =
@@ -87,12 +95,29 @@ export function IssuerPage() {
       currency: "USD",
       dueDate: "2026-12-18",
       chain: "base",
+      issuerWallet: "",
+      atokenAddress: "",
     },
   });
 
   useEffect(() => {
     form.setValue("invoiceNumber", demoInvoiceNumber ?? createInvoiceNumber());
   }, [demoInvoiceNumber, form]);
+
+  useEffect(() => {
+    const config = demoConfig.data;
+    if (
+      !config?.ready ||
+      !config.atokenAddress ||
+      !config.parties.issuer.wallet
+    )
+      return;
+    form.setValue("chain", config.chain);
+    form.setValue("issuerCvi", config.parties.issuer.cvi);
+    form.setValue("debtorCvi", config.debtorCvi);
+    form.setValue("issuerWallet", config.parties.issuer.wallet);
+    form.setValue("atokenAddress", config.atokenAddress);
+  }, [demoConfig.data, form]);
 
   const isSubmitting =
     createFingerprint.isPending || checkEncumbrance.isPending;
@@ -124,9 +149,16 @@ export function IssuerPage() {
         });
       }
     } catch (error) {
-      toast.error("Could not register the invoice", {
-        description: getApiErrorMessage(error),
-      });
+      const cviBlocked =
+        error instanceof ApiError && error.code?.startsWith("CVI_");
+      toast.error(
+        cviBlocked
+          ? "Issuer CVI verification failed"
+          : "Could not register the invoice",
+        {
+          description: getApiErrorMessage(error),
+        },
+      );
     }
   }
 
@@ -279,9 +311,25 @@ export function IssuerPage() {
                   </div>
 
                   <div className="rounded-2xl border border-border/70 bg-muted/35 p-4 sm:p-5">
-                    <p className="mb-4 text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
-                      Verified parties
-                    </p>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold tracking-[0.13em] text-muted-foreground uppercase">
+                        Cleanverse identity gate
+                      </p>
+                      <StatusBadge
+                        label={
+                          fingerprintResult?.issuerVerification
+                            ? "CVI verified"
+                            : demoConfig.data?.ready
+                              ? "Sandbox ready"
+                              : "Needs sandbox wallets"
+                        }
+                        tone={
+                          fingerprintResult?.issuerVerification
+                            ? "clean"
+                            : "neutral"
+                        }
+                      />
+                    </div>
                     <div className="grid gap-5 sm:grid-cols-2">
                       <Field
                         data-invalid={Boolean(form.formState.errors.issuerCvi)}
@@ -315,6 +363,58 @@ export function IssuerPage() {
                         />
                       </Field>
                     </div>
+                    <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                      <Field
+                        data-invalid={Boolean(
+                          form.formState.errors.issuerWallet,
+                        )}
+                      >
+                        <FieldLabel htmlFor="issuer-wallet">
+                          Issuer A-Pass wallet
+                        </FieldLabel>
+                        <Input
+                          id="issuer-wallet"
+                          data-testid="issuer-wallet"
+                          className="font-mono text-xs"
+                          placeholder="0x…"
+                          aria-invalid={Boolean(
+                            form.formState.errors.issuerWallet,
+                          )}
+                          {...form.register("issuerWallet")}
+                        />
+                        <FieldError
+                          errors={[form.formState.errors.issuerWallet]}
+                        />
+                      </Field>
+                      <Field
+                        data-invalid={Boolean(
+                          form.formState.errors.atokenAddress,
+                        )}
+                      >
+                        <FieldLabel htmlFor="atoken-address">
+                          Verification A-Token
+                        </FieldLabel>
+                        <Input
+                          id="atoken-address"
+                          data-testid="atoken-address"
+                          className="font-mono text-xs"
+                          placeholder="0x…"
+                          aria-invalid={Boolean(
+                            form.formState.errors.atokenAddress,
+                          )}
+                          {...form.register("atokenAddress")}
+                        />
+                        <FieldError
+                          errors={[form.formState.errors.atokenAddress]}
+                        />
+                      </Field>
+                    </div>
+                    <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+                      <WalletCards className="mt-0.5 size-3.5 shrink-0" />
+                      The API runs queryApass and verifyApass before creating
+                      the fingerprint. Cleanverse credentials never enter the
+                      browser.
+                    </p>
                   </div>
 
                   <Field
@@ -383,6 +483,12 @@ export function IssuerPage() {
             <CardContent>
               <div className="space-y-0">
                 {[
+                  {
+                    title: "Verify issuer A-Pass",
+                    body: "Confirm the CVI is active and eligible for this A-Token.",
+                    done: Boolean(fingerprintResult?.issuerVerification),
+                    icon: ShieldCheck,
+                  },
                   {
                     title: "Canonicalize fields",
                     body: "Normalize parties, amount, currency, and dates.",
@@ -509,6 +615,12 @@ export function IssuerPage() {
                         <ArrowRight />
                       </Link>
                     )}
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-white/65 px-3 py-2.5">
+                      <span className="text-xs text-muted-foreground">
+                        Issuer identity
+                      </span>
+                      <StatusBadge label="CVI verified" tone="clean" />
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>

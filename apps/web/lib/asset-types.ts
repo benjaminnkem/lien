@@ -9,9 +9,26 @@ export type InvoiceFields = {
 };
 
 export type CreateFingerprintInput = InvoiceFields & {
-  chain?: string;
-  issuerWallet?: string;
+  chain: string;
+  issuerWallet: string;
+  atokenAddress: string;
   debtorWallet?: string;
+};
+
+export type PartyVerification = {
+  role: "issuer" | "lender";
+  wallet: string;
+  chain: string;
+  atokenAddress: string;
+  cvRecordId: string | null;
+  tier: string | number | null;
+  subTier: number | null;
+  group: string | null;
+  status: number;
+  expirationTime: number | null;
+  verifyCode: number;
+  verifyMessage: string;
+  verifiedAt: string;
 };
 
 export type AssetStatus =
@@ -32,6 +49,8 @@ export type Asset = {
   issuerWallet: string | null;
   debtorWallet: string | null;
   atokenAddress: string | null;
+  issuerVerification: PartyVerification | null;
+  issuerCviVerifiedAt: string | null;
   cvaId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +65,7 @@ export type FingerprintResult = {
   fields: InvoiceFields;
   isClean: boolean;
   existingLienId: string | null;
+  issuerVerification: PartyVerification;
   createdAt: string;
 };
 
@@ -71,17 +91,18 @@ export type EncumbranceResult = {
 export type FinanceInput = {
   fingerprint: string;
   lenderCvi: string;
-  lenderWallet?: string;
+  lenderWallet: string;
   chain?: string;
   atokenAddress?: string;
   cvaId?: string;
-  requireCleanverseVerify?: boolean;
 };
 
 export type LienRecord = {
   id: string;
   lenderCvi: string;
   lenderWallet: string | null;
+  lenderVerification: PartyVerification | null;
+  lenderCviVerifiedAt: string | null;
   priority: number;
   status: "active" | "released";
   cvaId: string | null;
@@ -100,6 +121,7 @@ export type FinanceResult = {
     currency: string;
   };
   lien: LienRecord;
+  lenderVerification: PartyVerification;
   cleanverse: Record<string, unknown> | null;
 };
 
@@ -109,7 +131,8 @@ export type AuditEventType =
   | "CVA_MINTED"
   | "LIEN_REGISTERED"
   | "FINANCING_BLOCKED"
-  | "CVI_VERIFIED";
+  | "CVI_VERIFIED"
+  | "CVI_VERIFICATION_FAILED";
 
 export type AuditEvent = {
   id: string;
@@ -130,4 +153,40 @@ export type FinancingBlockedPayload = {
     registeredAt: string;
     cvaId: string | null;
   };
+  lenderVerification?: PartyVerification;
+};
+
+export type DemoParty = {
+  label: string;
+  cvi: string;
+  wallet: string | null;
+};
+
+export type DemoConfig = {
+  ready: boolean;
+  missing: string[];
+  chain: string;
+  atokenAddress: string | null;
+  parties: {
+    issuer: DemoParty;
+    lenderA: DemoParty;
+    lenderB: DemoParty;
+  };
+  debtorCvi: string;
+};
+
+export type DemoSeedResult = {
+  seededAt: string;
+  config: DemoConfig;
+  invoice: InvoiceFields;
+  fingerprint: FingerprintResult;
+  registry: EncumbranceResult;
+  firstFinance: FinanceResult;
+  conflict: {
+    attempted: boolean;
+    blocked: boolean;
+    code: string | null;
+    message: string | null;
+  };
+  auditCount: number;
 };

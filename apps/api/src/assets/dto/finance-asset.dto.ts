@@ -1,19 +1,18 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
-  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
   ValidateIf,
   ValidateNested,
-} from "class-validator";
-import { InvoiceFieldsDto } from "./invoice-fields.dto";
+} from 'class-validator';
+import { InvoiceFieldsDto } from './invoice-fields.dto';
 
 export class FinanceAssetDto {
   @ApiPropertyOptional({
-    description: "Existing fingerprint (preferred if already created)",
+    description: 'Existing fingerprint (preferred if already created)',
   })
   @ValidateIf((o: FinanceAssetDto) => !o.fields)
   @IsString()
@@ -28,50 +27,41 @@ export class FinanceAssetDto {
   fields?: InvoiceFieldsDto;
 
   @ApiProperty({
-    example: "cvi:lender:bank-001",
-    description: "Lender CVI / identity ref",
+    example: 'cvi:lender:bank-001',
+    description: 'Lender CVI / identity ref',
   })
   @IsString()
   @IsNotEmpty()
   lenderCvi!: string;
 
-  @ApiPropertyOptional({ description: "Lender wallet address" })
-  @IsOptional()
+  @ApiProperty({ description: 'Lender wallet holding the Cleanverse A-Pass' })
   @IsString()
-  lenderWallet?: string;
+  @IsNotEmpty()
+  lenderWallet!: string;
 
-  @ApiPropertyOptional({ example: "base" })
+  @ApiPropertyOptional({ example: 'base' })
   @IsOptional()
   @IsString()
   chain?: string;
 
   @ApiPropertyOptional({
-    description: "A-Token (CVA) contract to verify parties against",
+    description: 'A-Token (CVA) contract to verify parties against',
   })
   @IsOptional()
   @IsString()
   atokenAddress?: string;
 
   @ApiPropertyOptional({
-    description: "Optional CVA / mint id once issued",
+    description: 'Optional CVA / mint id once issued',
   })
   @IsOptional()
   @IsString()
   cvaId?: string;
 
   @ApiPropertyOptional({
-    description: "On-chain lien registration tx hash (optional)",
+    description: 'On-chain lien registration tx hash (optional)',
   })
   @IsOptional()
   @IsString()
   txHash?: string;
-
-  @ApiPropertyOptional({
-    default: true,
-    description:
-      "If true and wallets+atoken provided, call Cleanverse verify_apass for lender",
-  })
-  @IsOptional()
-  @IsBoolean()
-  requireCleanverseVerify?: boolean;
 }

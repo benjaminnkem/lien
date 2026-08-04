@@ -1,19 +1,26 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsOptional, IsString } from "class-validator";
-import { InvoiceFieldsDto } from "./invoice-fields.dto";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { InvoiceFieldsDto } from './invoice-fields.dto';
 
 export class CreateFingerprintDto extends InvoiceFieldsDto {
-  @ApiPropertyOptional({ example: "base" })
-  @IsOptional()
+  @ApiProperty({ example: 'base' })
   @IsString()
-  chain?: string;
+  @IsNotEmpty()
+  chain!: string;
 
-  @ApiPropertyOptional({ description: "Issuer wallet for Cleanverse A-Pass" })
-  @IsOptional()
+  @ApiProperty({ description: 'Issuer wallet holding the Cleanverse A-Pass' })
   @IsString()
-  issuerWallet?: string;
+  @IsNotEmpty()
+  issuerWallet!: string;
 
-  @ApiPropertyOptional({ description: "Debtor wallet for Cleanverse A-Pass" })
+  @ApiProperty({
+    description: 'A-Token contract used for Cleanverse transfer eligibility',
+  })
+  @IsString()
+  @IsNotEmpty()
+  atokenAddress!: string;
+
+  @ApiPropertyOptional({ description: 'Debtor wallet for Cleanverse A-Pass' })
   @IsOptional()
   @IsString()
   debtorWallet?: string;
