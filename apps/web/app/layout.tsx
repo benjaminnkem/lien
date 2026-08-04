@@ -1,41 +1,50 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Outfit, Raleway } from "next/font/google";
-import { AppProviders } from "@/providers/app-providers";
+import { Geist_Mono, Outfit, Raleway } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
-import "./globals.css";
 import { cn } from "@/lib/utils";
+import { AppProviders } from "@/providers/app-providers";
+import "./globals.css";
 
-const ralewayHeading = Raleway({subsets:['latin'],variable:'--font-heading'});
-
-const outfit = Outfit({subsets:['latin'],variable:'--font-sans'});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const heading = Raleway({
   subsets: ["latin"],
+  variable: "--font-heading",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const sans = Outfit({
   subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const mono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Lien — RWA Pre-Collateralization Firewall",
+  title: {
+    default: "Lien — One asset, one first claim",
+    template: "%s · Lien",
+  },
   description:
-    "Prevent duplicate tokenization and double collateralization of real-world assets with Cleanverse CVI + CVA.",
+    "The pre-collateralization integrity layer for verified real-world assets.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", outfit.variable, ralewayHeading.variable)}
+      className={cn(
+        "h-full antialiased",
+        sans.variable,
+        heading.variable,
+        mono.variable,
+      )}
     >
-      <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         <AppProviders>
           <SiteHeader />
           <main className="flex-1">{children}</main>

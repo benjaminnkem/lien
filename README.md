@@ -1,6 +1,6 @@
 # Lien
 
-**Lien** (LienZero) is a pre-mint and pre-collateralization firewall for Real-World Assets (RWAs). It prevents the same real-world asset — especially invoices and receivables — from being tokenized or pledged multiple times across platforms or chains.
+**Lien** (Lien) is a pre-mint and pre-collateralization firewall for Real-World Assets (RWAs). It prevents the same real-world asset — especially invoices and receivables — from being tokenized or pledged multiple times across platforms or chains.
 
 Built for the **Cleanverse Hackathon** with deep integration of **CVI** (identity) and **CVA** (verified assets).
 
@@ -36,12 +36,12 @@ pnpm db:up
 pnpm dev
 ```
 
-| Service   | URL                          |
-|-----------|------------------------------|
-| Web       | http://localhost:3000        |
-| API       | http://localhost:3001/api    |
-| Health    | http://localhost:3001/api/health |
-| Postgres  | localhost:5433 (user/pass/db: `lien`) |
+| Service  | URL                                   |
+| -------- | ------------------------------------- |
+| Web      | http://localhost:3000                 |
+| API      | http://localhost:3001/api             |
+| Health   | http://localhost:3001/api/health      |
+| Postgres | localhost:5433 (user/pass/db: `lien`) |
 
 ### Env files
 
@@ -54,13 +54,13 @@ Optional: set a real [WalletConnect Cloud](https://cloud.walletconnect.com/) pro
 
 ## Scripts
 
-| Command        | Description                          |
-|----------------|--------------------------------------|
-| `pnpm dev`     | Dev servers for web + api (+ sdk)    |
-| `pnpm build`   | Build all packages and apps          |
-| `pnpm db:up`   | Start Postgres via Docker Compose    |
-| `pnpm db:down` | Stop Postgres                        |
-| `pnpm lint`    | Lint all packages                    |
+| Command        | Description                       |
+| -------------- | --------------------------------- |
+| `pnpm dev`     | Dev servers for web + api (+ sdk) |
+| `pnpm build`   | Build all packages and apps       |
+| `pnpm db:up`   | Start Postgres via Docker Compose |
+| `pnpm db:down` | Stop Postgres                     |
+| `pnpm lint`    | Lint all packages                 |
 
 ## Stack
 
@@ -70,9 +70,9 @@ Optional: set a real [WalletConnect Cloud](https://cloud.walletconnect.com/) pro
 
 ## MVP roadmap (next)
 
-1. Asset fingerprint API + UI form  
-2. Encumbrance registry (Postgres + on-chain)  
-3. CVA mint gate (Cleanverse adapter)  
-4. Lien registration on finance  
-5. Issuer / Lender / Compliance dashboards  
+1. Asset fingerprint API + UI form
+2. Encumbrance registry (Postgres + on-chain)
+3. CVA mint gate (Cleanverse adapter)
+4. Lien registration on finance
+5. Issuer / Lender / Compliance dashboards
 6. Hardhat contracts (`apps/contracts`)

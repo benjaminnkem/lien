@@ -6,11 +6,13 @@ import {
   darkTheme,
   lightTheme,
 } from "@rainbow-me/rainbowkit";
-import { WagmiProvider } from "wagmi";
+import { ReactLenis } from "lenis/react";
 import { useState, type ReactNode } from "react";
+import { WagmiProvider } from "wagmi";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { wagmiConfig } from "@/lib/wagmi";
 import "@rainbow-me/rainbowkit/styles.css";
-import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -18,8 +20,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
+            staleTime: 20_000,
             refetchOnWindowFocus: false,
+            retry: 1,
+          },
+          mutations: {
+            retry: false,
           },
         },
       }),
@@ -32,16 +38,19 @@ export function AppProviders({ children }: { children: ReactNode }) {
           <RainbowKitProvider
             theme={{
               lightMode: lightTheme({
-                accentColor: "#0f766e",
+                accentColor: "#133e37",
                 borderRadius: "medium",
               }),
               darkMode: darkTheme({
-                accentColor: "#2dd4bf",
+                accentColor: "#74f2c5",
                 borderRadius: "medium",
               }),
             }}
           >
-            {children}
+            <ReactLenis root options={{ autoRaf: true, lerp: 0.09 }}>
+              {children}
+            </ReactLenis>
+            <Toaster richColors position="top-right" closeButton />
           </RainbowKitProvider>
         </TooltipProvider>
       </QueryClientProvider>
