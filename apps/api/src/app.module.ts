@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import configuration from "./config/configuration";
 import { validate } from "./config/env.validation";
 import { HealthModule } from "./health/health.module";
+import { CleanverseModule } from "./cleanverse/cleanverse.module";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 
@@ -13,7 +14,7 @@ import { AppService } from "./app.service";
       isGlobal: true,
       load: [configuration],
       validate,
-      envFilePath: [".env.local", ".env"],
+      envFilePath: [".env.local", ".env", "../../.env"],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -30,6 +31,7 @@ import { AppService } from "./app.service";
       }),
     }),
     HealthModule,
+    CleanverseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,11 +1,11 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance } from "class-transformer";
 import {
   IsBooleanString,
   IsNumberString,
   IsOptional,
   IsString,
   validateSync,
-} from 'class-validator';
+} from "class-validator";
 
 class EnvironmentVariables {
   @IsOptional()
@@ -43,6 +43,26 @@ class EnvironmentVariables {
   @IsOptional()
   @IsBooleanString()
   DATABASE_SYNC?: string;
+
+  @IsOptional()
+  @IsString()
+  CLEANVERSE_DOCS_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  CLEANVERSE_DOCS_ACCESS_CODE?: string;
+
+  @IsOptional()
+  @IsString()
+  CLEANVERSE_BASE_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  CLEANVERSE_API_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  CLEANVERSE_API_KEY?: string;
 }
 
 export function validate(config: Record<string, unknown>) {
