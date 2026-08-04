@@ -3,6 +3,8 @@ export default () => ({
   nodeEnv: process.env.NODE_ENV ?? "development",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
   database: {
+    driver: process.env.DATABASE_DRIVER ?? "sqlite",
+    path: process.env.DATABASE_PATH ?? "data/lien.sqlite",
     host: process.env.DATABASE_HOST ?? "localhost",
     port: parseInt(process.env.DATABASE_PORT ?? "5432", 10),
     username: process.env.DATABASE_USER ?? "postgres",

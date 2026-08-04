@@ -22,6 +22,14 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  DATABASE_DRIVER?: string;
+
+  @IsOptional()
+  @IsString()
+  DATABASE_PATH?: string;
+
+  @IsOptional()
+  @IsString()
   DATABASE_HOST?: string;
 
   @IsOptional()

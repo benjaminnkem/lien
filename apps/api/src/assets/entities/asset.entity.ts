@@ -1,0 +1,71 @@
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from "typeorm";
+import type { AssetStatus } from "@repo/sdk";
+import { LienEntity } from "./lien.entity";
+import { AuditEventEntity } from "./audit-event.entity";
+
+@Entity("assets")
+export class AssetEntity {
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
+
+  @Column({ type: "varchar", length: 66, unique: true })
+  fingerprint!: string;
+
+  @Column({ type: "varchar", length: 256 })
+  issuerCvi!: string;
+
+  @Column({ type: "varchar", length: 256 })
+  debtorCvi!: string;
+
+  @Column({ type: "varchar", length: 128 })
+  documentHash!: string;
+
+  @Column({ type: "varchar", length: 128 })
+  invoiceNumber!: string;
+
+  @Column({ type: "varchar", length: 64 })
+  amount!: string;
+
+  @Column({ type: "varchar", length: 3, default: "USD" })
+  currency!: string;
+
+  @Column({ type: "varchar", length: 32 })
+  dueDate!: string;
+
+  @Column({ type: "varchar", length: 32, default: "fingerprinted" })
+  status!: AssetStatus;
+
+  @Column({ type: "varchar", length: 32, nullable: true })
+  chain!: string | null;
+
+  @Column({ type: "varchar", length: 128, nullable: true })
+  issuerWallet!: string | null;
+
+  @Column({ type: "varchar", length: 128, nullable: true })
+  debtorWallet!: string | null;
+
+  @Column({ type: "varchar", length: 128, nullable: true })
+  atokenAddress!: string | null;
+
+  @Column({ type: "varchar", length: 128, nullable: true })
+  cvaId!: string | null;
+
+  @OneToMany(() => LienEntity, (lien) => lien.asset)
+  liens!: LienEntity[];
+
+  @OneToMany(() => AuditEventEntity, (event) => event.asset)
+  auditEvents!: AuditEventEntity[];
+
+  @CreateDateColumn({ type: "datetime" })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ type: "datetime" })
+  updatedAt!: Date;
+}

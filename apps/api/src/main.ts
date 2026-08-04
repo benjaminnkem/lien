@@ -32,6 +32,7 @@ async function bootstrap() {
     .setVersion("0.0.1")
     .addTag("app", "Service info")
     .addTag("health", "Health checks")
+    .addTag("assets", "Asset fingerprint, encumbrance registry, financing")
     .addTag("cleanverse", "Cleanverse sandbox (A-Pass / A-Token)")
     .build();
 
