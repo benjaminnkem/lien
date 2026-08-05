@@ -11,7 +11,9 @@
     "check-types": "turbo run check-types",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "contracts:compile": "pnpm --filter contracts compile",
+    "contracts:test": "pnpm --filter contracts test"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

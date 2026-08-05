@@ -9,7 +9,8 @@ Built for the **Cleanverse Hackathon** with deep integration of **CVI** (identit
 ```
 apps/
   web/          → Next.js frontend (App Router, Tailwind, wagmi, RainbowKit)
-  api/          → NestJS backend (TypeORM + PostgreSQL)
+  api/          → NestJS backend (TypeORM + SQLite/PostgreSQL)
+  contracts/    → Hardhat EncumbranceRegistry
 packages/
   sdk/          → Shared types, fingerprint utilities (@repo/sdk)
   ui/           → Shared React primitives (@repo/ui)
@@ -112,12 +113,15 @@ POST /api/demo/seed
 | `pnpm build`   | Build all packages and apps       |
 | `pnpm db:up`   | Start Postgres via Docker Compose |
 | `pnpm db:down` | Stop Postgres                     |
-| `pnpm lint`    | Lint all packages                 |
+| `pnpm lint`            | Lint all packages                 |
+| `pnpm contracts:test`  | Hardhat unit tests                |
+| `pnpm contracts:compile` | Compile Solidity                |
 
 ## Stack
 
 - **Frontend:** Next.js 16, TypeScript, Tailwind CSS 4, RainbowKit, wagmi, viem, TanStack Query, Zod
-- **Backend:** NestJS 11, TypeORM, PostgreSQL, class-validator
+- **Backend:** NestJS 11, TypeORM, SQLite/PostgreSQL, class-validator
+- **Contracts:** Hardhat, Solidity 0.8.24 (`EncumbranceRegistry`)
 - **Shared:** `@repo/sdk` (fingerprint + types), Turborepo monorepo
 
 ## MVP roadmap
@@ -126,5 +130,5 @@ POST /api/demo/seed
 2. Issuer / Lender / Compliance demo — complete
 3. CVI party verification gate — complete
 4. Compliance export + verified demo seed — complete
-5. Encumbrance registry contract + API dual-write
+5. Encumbrance registry contract — complete (API dual-write next)
 6. CVA mint gate and issued-asset lifecycle
