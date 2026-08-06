@@ -49,9 +49,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
               }),
             }}
           >
-            <ReactLenis root options={{ autoRaf: true, lerp: 0.09 }}>
+            {/* <ReactLenis root options={{ autoRaf: true, lerp: 0.09 }}>
+            </ReactLenis> */}
               {children}
-            </ReactLenis>
             <Toaster richColors position="top-right" closeButton />
           </RainbowKitProvider>
         </TooltipProvider>

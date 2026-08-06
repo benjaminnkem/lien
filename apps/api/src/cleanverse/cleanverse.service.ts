@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import axios, { AxiosInstance, isAxiosError } from "axios";
 import { randomUUID } from "node:crypto";
 import { encryptRequestBody } from "./cleanverse.crypto";
 import { CleanverseApiError, CleanverseConfigError } from "./cleanverse.errors";
@@ -33,11 +34,26 @@ type RequestOptions = {
   requestId?: string;
 };
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_RETRIES = 3;
+
 @Injectable()
 export class CleanverseService {
   private readonly logger = new Logger(CleanverseService.name);
+  private readonly http: AxiosInstance;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) {
+    this.http = axios.create({
+      timeout: this.timeoutMs,
+      headers: {
+        Accept: "application/json",
+      },
+      validateStatus: () => true,
+      transitional: {
+        clarifyTimeoutError: true,
+      },
+    });
+  }
 
   get isConfigured(): boolean {
     return Boolean(this.apiId && this.apiKey && this.baseUrl);
@@ -66,6 +82,20 @@ export class CleanverseService {
 
   private get apiKey(): string {
     return this.config.get<string>("cleanverse.apiKey") ?? "";
+  }
+
+  private get timeoutMs(): number {
+    const raw = this.config.get<string | number>("CLEANVERSE_TIMEOUT_MS");
+    const parsed =
+      typeof raw === "number" ? raw : parseInt(String(raw ?? ""), 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
+  }
+
+  private get maxRetries(): number {
+    const raw = this.config.get<string | number>("CLEANVERSE_MAX_RETRIES");
+    const parsed =
+      typeof raw === "number" ? raw : parseInt(String(raw ?? ""), 10);
+    return Number.isFinite(parsed) && parsed >= 1 ? parsed : DEFAULT_MAX_RETRIES;
   }
 
   private assertConfigured() {
@@ -193,49 +223,48 @@ export class CleanverseService {
       Accept: "application/json",
     };
 
-    let payload: string | undefined;
+    let data: unknown;
     if (body !== undefined) {
       headers["Content-Type"] = "application/json";
-      const outbound = encrypt ? encryptRequestBody(body, this.apiKey) : body;
-      payload = JSON.stringify(outbound);
+      data = encrypt ? encryptRequestBody(body, this.apiKey) : body;
     }
 
     this.logger.debug(`${method} ${path} (encrypt=${encrypt})`);
 
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method,
-        headers,
-        body: payload,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Cleanverse network error";
-      throw new CleanverseApiError("NETWORK_ERROR", message, 0, error);
-    }
+    const response = await this.requestWithRetry({
+      method,
+      url,
+      headers,
+      data,
+    });
 
-    const text = await response.text();
+    const status = response.status;
+    const raw = response.data;
     let parsed: CleanverseEnvelope<T> | null = null;
-    if (text) {
-      try {
-        parsed = JSON.parse(text) as CleanverseEnvelope<T>;
-      } catch {
-        throw new CleanverseApiError(
-          "INVALID_JSON",
-          `Cleanverse returned non-JSON (HTTP ${response.status})`,
-          response.status,
-          text.slice(0, 500),
-        );
+
+    if (typeof raw === "string") {
+      if (raw.length > 0) {
+        try {
+          parsed = JSON.parse(raw) as CleanverseEnvelope<T>;
+        } catch {
+          throw new CleanverseApiError(
+            "INVALID_JSON",
+            `Cleanverse returned non-JSON (HTTP ${status})`,
+            status,
+            raw.slice(0, 500),
+          );
+        }
       }
+    } else if (raw && typeof raw === "object") {
+      parsed = raw as CleanverseEnvelope<T>;
     }
 
-    if (!response.ok) {
+    if (status < 200 || status >= 300) {
       throw new CleanverseApiError(
-        parsed?.code ?? String(response.status),
-        parsed?.message ?? `Cleanverse HTTP ${response.status}`,
-        response.status,
-        parsed ?? text,
+        parsed?.code ?? String(status),
+        parsed?.message ?? `Cleanverse HTTP ${status}`,
+        status,
+        parsed ?? raw,
       );
     }
 
@@ -243,7 +272,7 @@ export class CleanverseService {
       throw new CleanverseApiError(
         "EMPTY_RESPONSE",
         "Cleanverse returned an empty response body",
-        response.status,
+        status,
       );
     }
 
@@ -251,11 +280,109 @@ export class CleanverseService {
       throw new CleanverseApiError(
         parsed.code,
         parsed.message || "Cleanverse business error",
-        response.status,
+        status,
         parsed,
       );
     }
 
     return parsed;
+  }
+
+  private async requestWithRetry(options: {
+    method: string;
+    url: string;
+    headers: Record<string, string>;
+    data?: unknown;
+  }) {
+    const attempts = this.maxRetries;
+    let lastError: unknown;
+
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        return await this.http.request({
+          method: options.method,
+          url: options.url,
+          headers: options.headers,
+          data: options.data,
+          timeout: this.timeoutMs,
+          responseType: "json",
+          transformResponse: [
+            (body: string) => {
+              if (body == null || body === "") return body;
+              try {
+                return JSON.parse(body);
+              } catch {
+                return body;
+              }
+            },
+          ],
+        });
+      } catch (error) {
+        lastError = error;
+        const detail = this.formatNetworkError(error);
+        const retryable = this.isRetryableNetworkError(error);
+        this.logger.warn(
+          `Cleanverse ${options.method} ${options.url} attempt ${attempt}/${attempts} failed: ${detail}`,
+        );
+        if (!retryable || attempt === attempts) break;
+        await this.sleep(250 * 2 ** (attempt - 1));
+      }
+    }
+
+    throw new CleanverseApiError(
+      "NETWORK_ERROR",
+      this.formatNetworkError(lastError),
+      0,
+      lastError,
+    );
+  }
+
+  private isRetryableNetworkError(error: unknown): boolean {
+    if (isAxiosError(error)) {
+      if (!error.response) {
+        const code = error.code ?? "";
+        return (
+          code === "ECONNABORTED" ||
+          code === "ETIMEDOUT" ||
+          code === "ECONNRESET" ||
+          code === "ECONNREFUSED" ||
+          code === "EAI_AGAIN" ||
+          code === "ENOTFOUND" ||
+          code === "ERR_NETWORK" ||
+          /timeout|socket hang up|ECONNRESET|Network Error/i.test(
+            error.message,
+          )
+        );
+      }
+      const status = error.response.status;
+      return status === 502 || status === 503 || status === 504;
+    }
+
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    return /timeout|fetch failed|socket hang up|ECONNRESET/i.test(message);
+  }
+
+  private formatNetworkError(error: unknown): string {
+    if (!error) return "Cleanverse network error";
+    if (isAxiosError(error)) {
+      const parts = [
+        error.message,
+        error.code,
+        error.response ? `HTTP ${error.response.status}` : undefined,
+      ].filter(Boolean);
+      return parts.join(" — ");
+    }
+    if (error instanceof Error) {
+      const cause =
+        "cause" in error && error.cause instanceof Error
+          ? error.cause.message
+          : undefined;
+      return [error.message, cause].filter(Boolean).join(" — ");
+    }
+    return String(error);
+  }
+
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
