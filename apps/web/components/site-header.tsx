@@ -29,7 +29,7 @@ export function SiteHeader() {
               Lien
             </span>
             <span className="block text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-              Integrity registry
+              Sepolia · integrity registry
             </span>
           </span>
         </Link>

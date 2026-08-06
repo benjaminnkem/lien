@@ -2,7 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class QueryAtokenListDto {
-  @ApiProperty({ example: "base" })
+  @ApiProperty({
+    example: "ethereum",
+    description: "Cleanverse network name (ethereum = Sepolia in UAT).",
+  })
   @IsString()
   @IsNotEmpty()
   chain!: string;

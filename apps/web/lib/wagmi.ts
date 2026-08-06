@@ -8,10 +8,16 @@ import {
   injectedWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
-import { hardhat, sepolia } from "wagmi/chains";
+import { sepolia } from "wagmi/chains";
 
 const projectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "lien-dev-placeholder";
+
+/** Optional Sepolia RPC override (Alchemy/Infura). Falls back to public RPC. */
+const sepoliaRpc =
+  process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL ||
+  process.env.NEXT_PUBLIC_CHAIN_RPC_URL ||
+  undefined;
 
 const connectors = connectorsForWallets(
   [
@@ -31,12 +37,12 @@ const connectors = connectorsForWallets(
   },
 );
 
+/** Lien is Sepolia-only for wallets, Cleanverse CVI/CVA, and the registry. */
 export const wagmiConfig = createConfig({
   connectors,
-  chains: [sepolia, hardhat],
+  chains: [sepolia],
   transports: {
-    [sepolia.id]: http(),
-    [hardhat.id]: http(),
+    [sepolia.id]: http(sepoliaRpc),
   },
   ssr: true,
 });

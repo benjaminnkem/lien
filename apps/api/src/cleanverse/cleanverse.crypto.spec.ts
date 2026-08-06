@@ -9,7 +9,7 @@ const SAMPLE_KEY = Buffer.alloc(32, 7).toString("base64");
 describe("cleanverse.crypto", () => {
   it("round-trips JSON payloads", () => {
     const plaintext = {
-      chain: "base",
+      chain: "ethereum",
       address: "0xabc",
       nested: { n: 1 },
     };

@@ -9,6 +9,7 @@ import {
 import { ReactLenis } from "lenis/react";
 import { useState, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
+import { sepolia } from "wagmi/chains";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { wagmiConfig } from "@/lib/wagmi";
@@ -36,6 +37,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <RainbowKitProvider
+            initialChain={sepolia}
             theme={{
               lightMode: lightTheme({
                 accentColor: "#133e37",

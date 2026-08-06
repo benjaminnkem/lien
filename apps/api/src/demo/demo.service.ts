@@ -155,7 +155,7 @@ export class DemoService {
 
   private readConfig(): DemoConfig {
     return {
-      chain: this.config.get<string>('demo.chain') ?? 'base',
+      chain: this.config.get<string>('demo.chain') ?? 'ethereum',
       atokenAddress: this.config.get<string>('demo.atokenAddress') ?? '',
       issuer: {
         label: 'Atlas Manufacturing',

@@ -78,16 +78,30 @@ console.log("baseUrl:", baseUrl);
 console.log("apiId:", apiId);
 console.log("apiKey bytes:", Buffer.from(apiKey, "base64").length);
 
-const list = await call("POST", "/query_deposit_atoken_list", { chain: "base" });
-console.log("\nPOST /query_deposit_atoken_list { chain: base }");
+// Lien demo is Ethereum Sepolia-only. Cleanverse UAT uses chain name "ethereum".
+const chain = process.env.DEMO_CHAIN || "ethereum";
+
+const list = await call("POST", "/query_deposit_atoken_list", { chain });
+console.log(`\nPOST /query_deposit_atoken_list { chain: ${chain} }`);
 console.log(JSON.stringify(list, null, 2));
 
 const query = await call("POST", "/query_apass", {
-  chain: "base",
+  chain,
   address: "0x0000000000000000000000000000000000000001",
 });
 console.log("\nPOST /query_apass (zero-ish address)");
 console.log(JSON.stringify(query, null, 2));
+
+const atoken =
+  process.env.DEMO_ATOKEN_ADDRESS ||
+  "0xaC0893567D43C3E7e6e35a72803df05416C1f20D";
+const verify = await call("POST", "/verify_apass", {
+  chain,
+  atoken,
+  address: "0x0000000000000000000000000000000000000001",
+});
+console.log(`\nPOST /verify_apass { chain: ${chain}, atoken: ${atoken} }`);
+console.log(JSON.stringify(verify, null, 2));
 
 if (list.status === 403 || query.status === 403) {
   console.error("\nGot 403 — check api-id / IP allowlist with Cleanverse.");

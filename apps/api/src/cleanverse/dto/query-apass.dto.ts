@@ -2,7 +2,11 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty, IsString } from "class-validator";
 
 export class QueryApassDto {
-  @ApiProperty({ example: "base", description: "Blockchain network" })
+  @ApiProperty({
+    example: "ethereum",
+    description:
+      "Blockchain network. Lien demo uses ethereum (Ethereum Sepolia in Cleanverse UAT).",
+  })
   @IsString()
   @IsNotEmpty()
   chain!: string;

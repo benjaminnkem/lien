@@ -39,7 +39,10 @@ export class FinanceAssetDto {
   @IsNotEmpty()
   lenderWallet!: string;
 
-  @ApiPropertyOptional({ example: 'base' })
+  @ApiPropertyOptional({
+    example: 'ethereum',
+    description: 'Cleanverse network name (ethereum = Sepolia in UAT).',
+  })
   @IsOptional()
   @IsString()
   chain?: string;

@@ -69,7 +69,7 @@ const invoice = {
   amount: '50000.00',
   currency: 'USD',
   dueDate: '2026-12-31',
-  chain: 'base',
+  chain: 'ethereum',
   issuerWallet: '0x1111111111111111111111111111111111111111',
   atokenAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
 };
@@ -104,7 +104,7 @@ describe('AssetsService', () => {
         code: '0000',
         message: 'success',
         data: {
-          chain: 'base',
+          chain: 'ethereum',
           atoken: invoice.atokenAddress,
           address: invoice.issuerWallet,
           code: 4,

@@ -3,7 +3,11 @@ import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { InvoiceFieldsDto } from './invoice-fields.dto';
 
 export class CreateFingerprintDto extends InvoiceFieldsDto {
-  @ApiProperty({ example: 'base' })
+  @ApiProperty({
+    example: 'ethereum',
+    description:
+      'Cleanverse network name. Lien demo uses ethereum (= Ethereum Sepolia in UAT).',
+  })
   @IsString()
   @IsNotEmpty()
   chain!: string;

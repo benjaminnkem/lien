@@ -54,30 +54,44 @@ Copy examples if needed:
 
 Optional: set a real [WalletConnect Cloud](https://cloud.walletconnect.com/) project id in `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`.
 
+### Network: Ethereum Sepolia only
+
+Lien’s demo is **testnet-only**:
+
+| Layer | Network |
+| --- | --- |
+| Wallet / wagmi / RainbowKit | **Ethereum Sepolia** (`chainId` 11155111) |
+| Cleanverse UAT API | Sandbox (`uatapi.cleanverse.com`) |
+| Cleanverse `chain` field | **`ethereum`** (UAT maps this to Sepolia, not mainnet) |
+| EncumbranceRegistry | **Ethereum Sepolia** |
+
+Do not point the demo at Base, Monad, or any mainnet.
+
 ### Cleanverse UAT demo identities
 
 The issuer and both lenders are fail-closed behind Cleanverse A-Pass checks.
 Add the server-side Cleanverse credentials and public UAT identity values to
-`apps/api/.env`:
+root `.env` or `apps/api/.env`:
 
 ```bash
 CLEANVERSE_BASE_URL=https://uatapi.cleanverse.com/api/cooperate
 CLEANVERSE_API_ID=your-api-id
 CLEANVERSE_API_KEY=your-api-key
 
-DEMO_CHAIN=base
-DEMO_ATOKEN_ADDRESS=cleanverse-issued-atoken-address
-DEMO_ISSUER_WALLET=wallet-with-active-apass
-DEMO_LENDER_A_WALLET=wallet-with-active-apass
-DEMO_LENDER_B_WALLET=wallet-with-active-apass
+# Cleanverse UAT: "ethereum" = Ethereum Sepolia
+DEMO_CHAIN=ethereum
+DEMO_ATOKEN_ADDRESS=0xaC0893567D43C3E7e6e35a72803df05416C1f20D
+DEMO_ISSUER_WALLET=0x...   # Sepolia wallet with active UAT A-Pass
+DEMO_LENDER_A_WALLET=0x...
+DEMO_LENDER_B_WALLET=0x...
 ```
 
 The wallets and A-Token are public chain identifiers; the API id/key are never
 sent to `apps/web`. Use wallets that already have active, unexpired sandbox
-A-Passes. If a sandbox identity is missing, frozen, expired, or ineligible for
-the A-Token, the API returns a specific `CVI_*` code and records the failed gate
-in the audit trail. `POST /api/demo/seed` refuses to fabricate verification when
-these values are missing.
+A-Passes **on ethereum (Sepolia)**. If a sandbox identity is missing, frozen,
+expired, or ineligible for the A-Token, the API returns a specific `CVI_*` code
+and records the failed gate in the audit trail. `POST /api/demo/seed` refuses to
+fabricate verification when these values are missing.
 
 ## Five-minute judge path
 
@@ -121,7 +135,8 @@ POST /api/demo/seed
 
 - **Frontend:** Next.js 16, TypeScript, Tailwind CSS 4, RainbowKit, wagmi, viem, TanStack Query, Zod
 - **Backend:** NestJS 11, TypeORM, SQLite/PostgreSQL, class-validator
-- **Contracts:** Hardhat, Solidity 0.8.24 (`EncumbranceRegistry`)
+- **Contracts:** Hardhat, Solidity 0.8.24 (`EncumbranceRegistry` on Ethereum Sepolia)
+- **Network:** Ethereum Sepolia only (Cleanverse UAT `chain: ethereum`)
 - **Shared:** `@repo/sdk` (fingerprint + types), Turborepo monorepo
 
 ## MVP roadmap

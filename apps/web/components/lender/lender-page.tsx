@@ -211,7 +211,7 @@ export function LenderPage() {
         fingerprint: selected.fingerprint,
         lenderCvi: currentLender.cvi,
         lenderWallet: currentLender.wallet,
-        chain: selected.chain ?? "base",
+        chain: selected.chain ?? "ethereum",
         atokenAddress: selected.atokenAddress,
       });
       setFinanceResult(result);
@@ -737,7 +737,7 @@ export function LenderPage() {
                   {[
                     ["Issuer CVI", selected.fields.issuerCvi],
                     ["Debtor CVI", selected.fields.debtorCvi],
-                    ["Network", selected.chain ?? "base"],
+                    ["Network", selected.chain ?? "ethereum"],
                     [
                       "Registry state",
                       selected.isClean

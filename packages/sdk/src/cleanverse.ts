@@ -11,6 +11,25 @@ export type CleanverseChain =
   | "platon"
   | string;
 
+/**
+ * Lien demo runs entirely on Ethereum Sepolia.
+ * Cleanverse UAT expects the network name `ethereum` for Sepolia (not "sepolia").
+ */
+export const LIEN_CLEANVERSE_CHAIN = "ethereum" as const satisfies CleanverseChain;
+
+/** EVM chain id for Ethereum Sepolia */
+export const LIEN_EVM_CHAIN_ID = 11_155_111;
+
+/** Human-readable network label for UI */
+export const LIEN_EVM_NETWORK_LABEL = "Ethereum Sepolia";
+
+/**
+ * Cleanverse UAT aUSDC on `ethereum` (Sepolia).
+ * Used as the default demo A-Token for CVI verify_apass gates.
+ */
+export const LIEN_DEMO_ATOKEN_ADDRESS =
+  "0xaC0893567D43C3E7e6e35a72803df05416C1f20D" as const;
+
 export type CviRef = {
   chain: CleanverseChain;
   address: string;

@@ -22,8 +22,11 @@ export default () => ({
     apiKey: process.env.CLEANVERSE_API_KEY ?? '',
   },
   demo: {
-    chain: process.env.DEMO_CHAIN ?? 'base',
-    atokenAddress: process.env.DEMO_ATOKEN_ADDRESS ?? '',
+    // Cleanverse UAT: "ethereum" = Ethereum Sepolia (not mainnet)
+    chain: process.env.DEMO_CHAIN ?? 'ethereum',
+    atokenAddress:
+      process.env.DEMO_ATOKEN_ADDRESS ??
+      '0xaC0893567D43C3E7e6e35a72803df05416C1f20D',
     issuerCvi: process.env.DEMO_ISSUER_CVI ?? 'cvi:issuer:atlas-manufacturing',
     issuerWallet: process.env.DEMO_ISSUER_WALLET ?? '',
     debtorCvi: process.env.DEMO_DEBTOR_CVI ?? 'cvi:debtor:northline-retail',
@@ -31,5 +34,12 @@ export default () => ({
     lenderAWallet: process.env.DEMO_LENDER_A_WALLET ?? '',
     lenderBCvi: process.env.DEMO_LENDER_B_CVI ?? 'cvi:lender:meridian-credit',
     lenderBWallet: process.env.DEMO_LENDER_B_WALLET ?? '',
+  },
+  chain: {
+    enabled: (process.env.CHAIN_ENABLED ?? 'false') === 'true',
+    rpcUrl: process.env.CHAIN_RPC_URL ?? process.env.SEPOLIA_RPC_URL ?? '',
+    registryAddress: process.env.ENCUMBRANCE_REGISTRY_ADDRESS ?? '',
+    privateKey: process.env.CHAIN_PRIVATE_KEY ?? '',
+    chainId: parseInt(process.env.CHAIN_ID ?? '11155111', 10),
   },
 });

@@ -2,6 +2,8 @@
 
 Hardhat package for on-chain encumbrance.
 
+**Demo network: Ethereum Sepolia only** (chain id `11155111`). No mainnet deploys for the hackathon.
+
 ## EncumbranceRegistry
 
 First-priority lien registry keyed by Lien **asset fingerprints** (`bytes32` keccak256 from `@repo/sdk`).

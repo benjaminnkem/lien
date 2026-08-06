@@ -5,7 +5,7 @@ import { AssetsService } from '../assets/assets.service';
 import { DemoService } from './demo.service';
 
 const configuredValues: Record<string, string> = {
-  'demo.chain': 'base',
+  'demo.chain': 'ethereum',
   'demo.atokenAddress': '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   'demo.issuerCvi': 'cvi:issuer:demo',
   'demo.issuerWallet': '0x1111111111111111111111111111111111111111',

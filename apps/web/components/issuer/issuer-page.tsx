@@ -94,7 +94,7 @@ export function IssuerPage() {
       amount: "128500.00",
       currency: "USD",
       dueDate: "2026-12-18",
-      chain: "base",
+      chain: "ethereum",
       issuerWallet: "",
       atokenAddress: "",
     },
@@ -294,18 +294,14 @@ export function IssuerPage() {
                         id="chain"
                         {...form.register("chain")}
                       >
-                        <NativeSelectOption value="base">
-                          Base
-                        </NativeSelectOption>
                         <NativeSelectOption value="ethereum">
-                          Ethereum
-                        </NativeSelectOption>
-                        <NativeSelectOption value="polygon">
-                          Polygon
+                          Ethereum Sepolia
                         </NativeSelectOption>
                       </NativeSelect>
                       <FieldDescription>
-                        Used by the future CVA mint gate.
+                        Cleanverse UAT maps{" "}
+                        <code className="text-xs">ethereum</code> to Sepolia.
+                        Lien is testnet-only for the demo.
                       </FieldDescription>
                     </Field>
                   </div>
