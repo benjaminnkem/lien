@@ -145,5 +145,5 @@ POST /api/demo/seed
 2. Issuer / Lender / Compliance demo — complete
 3. CVI party verification gate — complete
 4. Compliance export + verified demo seed — complete
-5. Encumbrance registry contract — complete (API dual-write next)
+5. Encumbrance registry contract + API dual-write on finance — complete
 6. CVA mint gate and issued-asset lifecycle

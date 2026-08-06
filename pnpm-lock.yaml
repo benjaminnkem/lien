@@ -65,6 +65,9 @@ importers:
       typeorm:
         specifier: ^0.3.25
         version: 0.3.31(better-sqlite3@11.10.0)(pg@8.22.0)(ts-node@10.9.2(@types/node@22.15.3)(typescript@5.9.2))
+      viem:
+        specifier: ^2.55.10
+        version: 2.55.10(bufferutil@4.1.0)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@4.4.3)
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.2.0

@@ -51,6 +51,7 @@ pnpm --filter contracts deploy:local
 
 See `deployments/sepolia.json`.
 
-## Next
+## Dual-write
 
-Wire dual-write from `apps/api` finance path to `registerLien` (see monorepo roadmap).
+When `CHAIN_ENABLED=true`, `POST /api/assets/finance` calls `registerLien` on this
+contract (Sepolia), waits for the receipt, and stores `txHash` on the lien record.

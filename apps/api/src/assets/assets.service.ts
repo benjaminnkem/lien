@@ -27,6 +27,12 @@ import {
   CleanverseApiError,
   CleanverseConfigError,
 } from '../cleanverse/cleanverse.errors';
+import { ChainService, type OnChainLienProof } from '../chain/chain.service';
+import {
+  ChainAlreadyEncumberedError,
+  ChainConfigError,
+  ChainWriteError,
+} from '../chain/chain.errors';
 import type { PartyVerificationEvidence } from './party-verification.types';
 
 type VerificationRole = PartyVerificationEvidence['role'];
@@ -58,6 +64,7 @@ export class AssetsService {
     @InjectRepository(AuditEventEntity)
     private readonly audits: Repository<AuditEventEntity>,
     private readonly cleanverse: CleanverseService,
+    private readonly chain: ChainService,
   ) {}
 
   async createFingerprint(dto: CreateFingerprintDto) {
@@ -234,9 +241,111 @@ export class AssetsService {
           priority: existing.priority,
           registeredAt: existing.registeredAt,
           cvaId: existing.cvaId,
+          txHash: existing.txHash,
         },
         lenderVerification,
       });
+    }
+
+    if (this.chain.isEnabled) {
+      try {
+        const onChainEncumbered = await this.chain.isEncumbered(fingerprint);
+        if (onChainEncumbered) {
+          const onChain = await this.chain.getLien(fingerprint);
+          await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
+            attemptedLenderCvi: dto.lenderCvi,
+            attemptedLenderWallet: dto.lenderWallet,
+            reason: 'on_chain_duplicate_financing',
+            onChainLender: onChain.lender,
+            registryAddress: onChain.registryAddress,
+          });
+          throw new ConflictException({
+            message:
+              'Financing blocked: on-chain first-priority lien already exists for this fingerprint',
+            code: 'FINANCING_BLOCKED',
+            fingerprint,
+            source: 'on_chain',
+            existingLien: {
+              lender: onChain.lender,
+              registeredAt: onChain.registeredAt,
+              registryAddress: onChain.registryAddress,
+            },
+            lenderVerification,
+          });
+        }
+      } catch (error) {
+        if (error instanceof ConflictException) throw error;
+        if (error instanceof ChainConfigError) {
+          throw new ServiceUnavailableException({
+            message: error.message,
+            code: 'CHAIN_NOT_CONFIGURED',
+          });
+        }
+        throw new BadGatewayException({
+          message: `On-chain encumbrance check failed: ${
+            error instanceof Error ? error.message : 'unknown error'
+          }`,
+          code: 'CHAIN_READ_FAILED',
+        });
+      }
+    }
+
+    let onChainProof: OnChainLienProof | null = null;
+    if (this.chain.isEnabled) {
+      if (!dto.lenderWallet) {
+        throw new BadRequestException({
+          message: 'lenderWallet is required for on-chain lien registration',
+          code: 'LENDER_WALLET_REQUIRED',
+        });
+      }
+      try {
+        onChainProof = await this.chain.registerLien(
+          fingerprint,
+          dto.lenderWallet,
+        );
+      } catch (error) {
+        if (error instanceof ChainAlreadyEncumberedError) {
+          await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
+            attemptedLenderCvi: dto.lenderCvi,
+            attemptedLenderWallet: dto.lenderWallet,
+            reason: 'on_chain_duplicate_financing',
+            onChainLender: error.existingLender,
+          });
+          throw new ConflictException({
+            message:
+              'Financing blocked: on-chain first-priority lien already exists for this fingerprint',
+            code: 'FINANCING_BLOCKED',
+            fingerprint,
+            source: 'on_chain',
+            existingLien: {
+              lender: error.existingLender,
+            },
+            lenderVerification,
+          });
+        }
+        if (error instanceof ChainConfigError) {
+          throw new ServiceUnavailableException({
+            message: error.message,
+            code: 'CHAIN_NOT_CONFIGURED',
+          });
+        }
+        const detail =
+          error instanceof ChainWriteError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : 'unknown error';
+        await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
+          attemptedLenderCvi: dto.lenderCvi,
+          attemptedLenderWallet: dto.lenderWallet,
+          reason: 'on_chain_register_failed',
+          detail,
+        });
+        throw new BadGatewayException({
+          message: `On-chain lien registration failed: ${detail}`,
+          code: 'CHAIN_WRITE_FAILED',
+        });
+      }
     }
 
     const lien = this.liens.create({
@@ -249,7 +358,7 @@ export class AssetsService {
       priority: 1,
       status: 'active',
       cvaId: dto.cvaId ?? asset.cvaId ?? null,
-      txHash: dto.txHash ?? null,
+      txHash: onChainProof?.txHash ?? dto.txHash ?? null,
     });
 
     const savedLien = await this.liens.save(lien);
@@ -266,6 +375,14 @@ export class AssetsService {
       priority: savedLien.priority,
       cvaId: savedLien.cvaId,
       txHash: savedLien.txHash,
+      onChain: onChainProof
+        ? {
+            registryAddress: onChainProof.registryAddress,
+            registrar: onChainProof.registrar,
+            chainId: onChainProof.chainId,
+            explorerUrl: onChainProof.explorerUrl,
+          }
+        : null,
     });
 
     return {
@@ -296,6 +413,22 @@ export class AssetsService {
           message: lenderVerification.verifyMessage,
         },
       },
+      onChain: onChainProof
+        ? {
+            registered: true,
+            txHash: onChainProof.txHash,
+            explorerUrl: onChainProof.explorerUrl,
+            registryAddress: onChainProof.registryAddress,
+            registrar: onChainProof.registrar,
+            chainId: onChainProof.chainId,
+            lender: onChainProof.lender,
+          }
+        : {
+            registered: false,
+            reason: this.chain.isEnabled
+              ? 'chain_write_skipped'
+              : 'chain_disabled',
+          },
     };
   }
 

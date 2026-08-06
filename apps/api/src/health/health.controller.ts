@@ -1,11 +1,15 @@
 import { Controller, Get } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ChainService } from "../chain/chain.service";
 
 @ApiTags("health")
 @Controller("health")
 export class HealthController {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly chain: ChainService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "Health check" })
@@ -18,6 +22,7 @@ export class HealthController {
         service: { type: "string", example: "lien-api" },
         timestamp: { type: "string", format: "date-time" },
         cleanverseConfigured: { type: "boolean", example: true },
+        chain: { type: "object" },
       },
     },
   })
@@ -33,6 +38,7 @@ export class HealthController {
       service: "lien-api",
       timestamp: new Date().toISOString(),
       cleanverseConfigured,
+      chain: this.chain.getStatus(),
     };
   }
 }

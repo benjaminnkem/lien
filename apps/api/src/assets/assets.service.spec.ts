@@ -7,6 +7,7 @@ import { AssetEntity } from './entities/asset.entity';
 import { LienEntity } from './entities/lien.entity';
 import { AuditEventEntity } from './entities/audit-event.entity';
 import { CleanverseService } from '../cleanverse/cleanverse.service';
+import { ChainService } from '../chain/chain.service';
 
 type Store<T extends { id: string }> = Map<string, T>;
 
@@ -131,6 +132,16 @@ describe('AssetsService', () => {
         {
           provide: CleanverseService,
           useValue: cleanverse,
+        },
+        {
+          provide: ChainService,
+          useValue: {
+            isEnabled: false,
+            isReady: false,
+            isEncumbered: jest.fn(),
+            registerLien: jest.fn(),
+            getLien: jest.fn(),
+          },
         },
       ],
     }).compile();

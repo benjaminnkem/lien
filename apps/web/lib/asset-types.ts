@@ -110,6 +110,21 @@ export type LienRecord = {
   registeredAt: string;
 };
 
+export type OnChainLienResult =
+  | {
+      registered: true;
+      txHash: string;
+      explorerUrl: string;
+      registryAddress: string;
+      registrar: string;
+      chainId: number;
+      lender: string;
+    }
+  | {
+      registered: false;
+      reason: string;
+    };
+
 export type FinanceResult = {
   success: true;
   fingerprint: string;
@@ -123,6 +138,7 @@ export type FinanceResult = {
   lien: LienRecord;
   lenderVerification: PartyVerification;
   cleanverse: Record<string, unknown> | null;
+  onChain?: OnChainLienResult | null;
 };
 
 export type AuditEventType =

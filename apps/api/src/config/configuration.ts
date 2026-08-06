@@ -22,7 +22,6 @@ export default () => ({
     apiKey: process.env.CLEANVERSE_API_KEY ?? '',
   },
   demo: {
-    // Cleanverse UAT: "ethereum" = Ethereum Sepolia (not mainnet)
     chain: process.env.DEMO_CHAIN ?? 'ethereum',
     atokenAddress:
       process.env.DEMO_ATOKEN_ADDRESS ??

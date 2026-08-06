@@ -107,6 +107,30 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   DEMO_LENDER_B_WALLET?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  CHAIN_ENABLED?: string;
+
+  @IsOptional()
+  @IsString()
+  CHAIN_RPC_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  SEPOLIA_RPC_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  ENCUMBRANCE_REGISTRY_ADDRESS?: string;
+
+  @IsOptional()
+  @IsString()
+  CHAIN_PRIVATE_KEY?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  CHAIN_ID?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

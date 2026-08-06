@@ -690,8 +690,21 @@ export function LenderPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="mt-4 rounded-2xl bg-white/65 p-4 font-mono text-[10px] break-all text-muted-foreground">
-                      Lien ID · {financeResult.lien.id}
+                    <div className="mt-4 space-y-2 rounded-2xl bg-white/65 p-4 font-mono text-[10px] break-all text-muted-foreground">
+                      <p>Lien ID · {financeResult.lien.id}</p>
+                      {financeResult.onChain?.registered && (
+                        <>
+                          <p>Sepolia tx · {financeResult.onChain.txHash}</p>
+                          <a
+                            href={financeResult.onChain.explorerUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex text-[11px] font-sans font-medium text-emerald-800 underline-offset-2 hover:underline"
+                          >
+                            View on Etherscan
+                          </a>
+                        </>
+                      )}
                     </div>
                     <Button
                       data-testid="switch-lender-b"
