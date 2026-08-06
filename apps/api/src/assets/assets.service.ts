@@ -11,8 +11,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
   createAssetFingerprint,
+  formatNetworkLabel,
+  isCrossChainAttempt,
   isVerifyApassAllowed,
   mapVerifyApassMessage,
+  normalizeSettlementNetwork,
   type AssetStatus,
   type InvoiceFields,
 } from '@repo/sdk';
@@ -147,21 +150,25 @@ export class AssetsService {
           ? 'clean'
           : 'draft';
 
+    const settlementChain = this.resolveSettlementChain(activeLien, asset);
     const result = {
       fingerprint,
       isClean,
       status,
       existingLienId: activeLien?.id ?? null,
+      settlementChain,
+      scope: 'global' as const,
       reason: activeLien
-        ? `Asset already encumbered by first-priority lien ${activeLien.id} (lender ${activeLien.lenderCvi})`
+        ? `Fingerprint already encumbered globally by first-priority lien ${activeLien.id} on ${formatNetworkLabel(settlementChain)} (lender ${activeLien.lenderCvi}). Re-pledge on any network is blocked.`
         : asset
-          ? 'No active lien — asset is clean for financing'
+          ? 'No active lien — fingerprint is clean for financing on any settlement network'
           : 'Fingerprint not registered yet; no active lien found',
       asset: asset
         ? {
             id: asset.id,
             status: asset.status,
             invoiceNumber: asset.invoiceNumber,
+            chain: asset.chain,
           }
         : null,
       lien: activeLien
@@ -170,6 +177,8 @@ export class AssetsService {
             lenderCvi: activeLien.lenderCvi,
             priority: activeLien.priority,
             registeredAt: activeLien.registeredAt,
+            settlementChain,
+            txHash: activeLien.txHash,
           }
         : null,
     };
@@ -178,6 +187,8 @@ export class AssetsService {
       isClean,
       status,
       existingLienId: activeLien?.id ?? null,
+      settlementChain,
+      scope: 'global',
     });
 
     return result;
@@ -209,68 +220,65 @@ export class AssetsService {
       });
     }
 
-    const chain = dto.chain ?? asset.chain;
+    const attemptedChain =
+      normalizeSettlementNetwork(dto.chain ?? asset.chain) ?? 'ethereum';
     const atokenAddress = dto.atokenAddress ?? asset.atokenAddress;
+
+    const existingEarly = await this.findActiveLien(fingerprint);
+    if (existingEarly) {
+      let lenderVerification: PartyVerificationEvidence | null = null;
+      try {
+        lenderVerification = await this.verifyParty({
+          role: 'lender',
+          fingerprint,
+          assetId: asset.id,
+          wallet: dto.lenderWallet,
+          chain: attemptedChain,
+          atokenAddress,
+        });
+      } catch {
+        lenderVerification = null;
+      }
+      throw await this.rejectDuplicateFinance({
+        fingerprint,
+        asset,
+        existing: existingEarly,
+        attemptedChain,
+        attemptedLenderCvi: dto.lenderCvi,
+        attemptedLenderWallet: dto.lenderWallet,
+        lenderVerification,
+        source: 'registry',
+        reason: 'duplicate_financing',
+      });
+    }
+
     const lenderVerification = await this.verifyParty({
       role: 'lender',
       fingerprint,
       assetId: asset.id,
       wallet: dto.lenderWallet,
-      chain,
+      chain: attemptedChain,
       atokenAddress,
     });
-
-    const existing = await this.findActiveLien(fingerprint);
-    if (existing) {
-      await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
-        attemptedLenderCvi: dto.lenderCvi,
-        attemptedLenderWallet: dto.lenderWallet,
-        existingLienId: existing.id,
-        existingLenderCvi: existing.lenderCvi,
-        reason: 'duplicate_financing',
-      });
-
-      throw new ConflictException({
-        message:
-          'Financing blocked: underlying asset already has a first-priority lien',
-        code: 'FINANCING_BLOCKED',
-        fingerprint,
-        existingLien: {
-          id: existing.id,
-          lenderCvi: existing.lenderCvi,
-          priority: existing.priority,
-          registeredAt: existing.registeredAt,
-          cvaId: existing.cvaId,
-          txHash: existing.txHash,
-        },
-        lenderVerification,
-      });
-    }
 
     if (this.chain.isEnabled) {
       try {
         const onChainEncumbered = await this.chain.isEncumbered(fingerprint);
         if (onChainEncumbered) {
           const onChain = await this.chain.getLien(fingerprint);
-          await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
+          throw await this.rejectDuplicateFinance({
+            fingerprint,
+            asset,
+            existing: null,
+            attemptedChain,
             attemptedLenderCvi: dto.lenderCvi,
             attemptedLenderWallet: dto.lenderWallet,
+            lenderVerification,
+            source: 'on_chain',
             reason: 'on_chain_duplicate_financing',
             onChainLender: onChain.lender,
+            onChainRegisteredAt: onChain.registeredAt,
             registryAddress: onChain.registryAddress,
-          });
-          throw new ConflictException({
-            message:
-              'Financing blocked: on-chain first-priority lien already exists for this fingerprint',
-            code: 'FINANCING_BLOCKED',
-            fingerprint,
-            source: 'on_chain',
-            existingLien: {
-              lender: onChain.lender,
-              registeredAt: onChain.registeredAt,
-              registryAddress: onChain.registryAddress,
-            },
-            lenderVerification,
           });
         }
       } catch (error) {
@@ -305,22 +313,17 @@ export class AssetsService {
         );
       } catch (error) {
         if (error instanceof ChainAlreadyEncumberedError) {
-          await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
+          throw await this.rejectDuplicateFinance({
+            fingerprint,
+            asset,
+            existing: null,
+            attemptedChain,
             attemptedLenderCvi: dto.lenderCvi,
             attemptedLenderWallet: dto.lenderWallet,
+            lenderVerification,
+            source: 'on_chain',
             reason: 'on_chain_duplicate_financing',
             onChainLender: error.existingLender,
-          });
-          throw new ConflictException({
-            message:
-              'Financing blocked: on-chain first-priority lien already exists for this fingerprint',
-            code: 'FINANCING_BLOCKED',
-            fingerprint,
-            source: 'on_chain',
-            existingLien: {
-              lender: error.existingLender,
-            },
-            lenderVerification,
           });
         }
         if (error instanceof ChainConfigError) {
@@ -338,6 +341,7 @@ export class AssetsService {
         await this.audit('FINANCING_BLOCKED', fingerprint, asset.id, {
           attemptedLenderCvi: dto.lenderCvi,
           attemptedLenderWallet: dto.lenderWallet,
+          attemptedChain,
           reason: 'on_chain_register_failed',
           detail,
         });
@@ -359,12 +363,13 @@ export class AssetsService {
       status: 'active',
       cvaId: dto.cvaId ?? asset.cvaId ?? null,
       txHash: onChainProof?.txHash ?? dto.txHash ?? null,
+      settlementChain: attemptedChain,
     });
 
     const savedLien = await this.liens.save(lien);
 
     asset.status = 'financed';
-    asset.chain = chain;
+    asset.chain = attemptedChain;
     asset.atokenAddress = atokenAddress;
     if (dto.cvaId) asset.cvaId = dto.cvaId;
     await this.assets.save(asset);
@@ -375,6 +380,8 @@ export class AssetsService {
       priority: savedLien.priority,
       cvaId: savedLien.cvaId,
       txHash: savedLien.txHash,
+      settlementChain: savedLien.settlementChain,
+      scope: 'global',
       onChain: onChainProof
         ? {
             registryAddress: onChainProof.registryAddress,
@@ -388,12 +395,14 @@ export class AssetsService {
     return {
       success: true,
       fingerprint,
+      scope: 'global',
       asset: {
         id: asset.id,
         status: asset.status,
         invoiceNumber: asset.invoiceNumber,
         amount: asset.amount,
         currency: asset.currency,
+        chain: asset.chain,
       },
       lien: {
         id: savedLien.id,
@@ -403,6 +412,7 @@ export class AssetsService {
         status: savedLien.status,
         cvaId: savedLien.cvaId,
         txHash: savedLien.txHash,
+        settlementChain: savedLien.settlementChain,
         registeredAt: savedLien.registeredAt,
       },
       lenderVerification,
@@ -861,7 +871,105 @@ export class AssetsService {
       status: lien.status,
       cvaId: lien.cvaId,
       txHash: lien.txHash,
+      settlementChain: lien.settlementChain,
       registeredAt: lien.registeredAt,
     };
+  }
+
+  private resolveSettlementChain(
+    lien: LienEntity | null,
+    asset: AssetEntity | null,
+  ): string | null {
+    return (
+      normalizeSettlementNetwork(lien?.settlementChain) ??
+      normalizeSettlementNetwork(asset?.chain) ??
+      null
+    );
+  }
+
+  private buildBlockedMessage(input: {
+    settlementChain: string | null;
+    attemptedChain: string;
+    crossChain: boolean;
+  }): string {
+    if (input.crossChain && input.settlementChain) {
+      return `Financing blocked: this receivable already has a first-priority lien on ${formatNetworkLabel(input.settlementChain)}. Cross-chain re-pledge on ${formatNetworkLabel(input.attemptedChain)} is denied.`;
+    }
+    if (input.settlementChain) {
+      return `Financing blocked: active first-priority lien already exists on ${formatNetworkLabel(input.settlementChain)}. The same fingerprint cannot be financed again on any network.`;
+    }
+    return 'Financing blocked: underlying asset already has a first-priority lien. The fingerprint is globally encumbered.';
+  }
+
+  private async rejectDuplicateFinance(input: {
+    fingerprint: string;
+    asset: AssetEntity;
+    existing: LienEntity | null;
+    attemptedChain: string;
+    attemptedLenderCvi: string;
+    attemptedLenderWallet?: string | null;
+    lenderVerification?: PartyVerificationEvidence | null;
+    source: 'registry' | 'on_chain';
+    reason: string;
+    onChainLender?: string | null;
+    onChainRegisteredAt?: number | null;
+    registryAddress?: string | null;
+  }): Promise<ConflictException> {
+    const settlementChain = this.resolveSettlementChain(
+      input.existing,
+      input.asset,
+    );
+    const crossChain = isCrossChainAttempt(
+      settlementChain,
+      input.attemptedChain,
+    );
+    const message = this.buildBlockedMessage({
+      settlementChain,
+      attemptedChain: input.attemptedChain,
+      crossChain,
+    });
+
+    await this.audit('FINANCING_BLOCKED', input.fingerprint, input.asset.id, {
+      attemptedLenderCvi: input.attemptedLenderCvi,
+      attemptedLenderWallet: input.attemptedLenderWallet ?? null,
+      attemptedChain: input.attemptedChain,
+      settlementChain,
+      crossChain,
+      scope: 'global',
+      existingLienId: input.existing?.id ?? null,
+      existingLenderCvi: input.existing?.lenderCvi ?? null,
+      onChainLender: input.onChainLender ?? null,
+      reason: crossChain ? 'cross_chain_repledge' : input.reason,
+      source: input.source,
+    });
+
+    return new ConflictException({
+      message,
+      code: 'FINANCING_BLOCKED',
+      reason: crossChain ? 'CROSS_CHAIN_REPLEDGE' : 'DUPLICATE_FINANCING',
+      fingerprint: input.fingerprint,
+      scope: 'global',
+      crossChain,
+      attemptedChain: input.attemptedChain,
+      settlementChain,
+      source: input.source,
+      existingLien: input.existing
+        ? {
+            id: input.existing.id,
+            lenderCvi: input.existing.lenderCvi,
+            priority: input.existing.priority,
+            registeredAt: input.existing.registeredAt,
+            cvaId: input.existing.cvaId,
+            txHash: input.existing.txHash,
+            settlementChain,
+          }
+        : {
+            lender: input.onChainLender ?? null,
+            registeredAt: input.onChainRegisteredAt ?? null,
+            registryAddress: input.registryAddress ?? null,
+            settlementChain,
+          },
+      lenderVerification: input.lenderVerification ?? null,
+    });
   }
 }

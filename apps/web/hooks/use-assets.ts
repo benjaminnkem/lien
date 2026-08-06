@@ -97,14 +97,23 @@ export function useFinanceAsset() {
   });
 }
 
+export type SeedDemoInput = {
+  issuerWallet: string;
+  lenderAWallet: string;
+  lenderBWallet: string;
+  issuerCvi?: string;
+  debtorCvi?: string;
+  lenderACvi?: string;
+  lenderBCvi?: string;
+  includeConflict?: boolean;
+};
+
 export function useSeedDemo() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (includeConflict: boolean) =>
-      apiPost<DemoSeedResult, { includeConflict: boolean }>("/demo/seed", {
-        includeConflict,
-      }),
+    mutationFn: (input: SeedDemoInput) =>
+      apiPost<DemoSeedResult, SeedDemoInput>("/demo/seed", input),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: assetKeys.list() }),

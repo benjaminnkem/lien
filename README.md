@@ -65,47 +65,44 @@ Lien’s demo is **testnet-only**:
 | Cleanverse `chain` field | **`ethereum`** (UAT maps this to Sepolia, not mainnet) |
 | EncumbranceRegistry | **Ethereum Sepolia** |
 
-Do not point the demo at Base, Monad, or any mainnet.
+Demo default settlement is Ethereum Sepolia (`DEMO_CHAIN=ethereum`). The
+registry is **global by fingerprint**: financing on one network blocks the same
+invoice on every other network (try Lender B on `DEMO_CONFLICT_CHAIN=base`).
 
-### Cleanverse UAT demo identities
+### Cleanverse + browser wallets
 
-The issuer and both lenders are fail-closed behind Cleanverse A-Pass checks.
-Add the server-side Cleanverse credentials and public UAT identity values to
-root `.env` or `apps/api/.env`:
+Issuer and lender actions use the **wallet connected in the browser**
+(RainbowKit / MetaMask). There is no server-side mock wallet for the live flow.
+
+Server env only needs Cleanverse credentials and the public verification A-Token:
 
 ```bash
 CLEANVERSE_BASE_URL=https://uatapi.cleanverse.com/api/cooperate
 CLEANVERSE_API_ID=your-api-id
 CLEANVERSE_API_KEY=your-api-key
 
-# Cleanverse UAT: "ethereum" = Ethereum Sepolia
 DEMO_CHAIN=ethereum
+DEMO_CONFLICT_CHAIN=base
 DEMO_ATOKEN_ADDRESS=0xaC0893567D43C3E7e6e35a72803df05416C1f20D
-DEMO_ISSUER_WALLET=0x...   # Sepolia wallet with active UAT A-Pass
-DEMO_LENDER_A_WALLET=0x...
-DEMO_LENDER_B_WALLET=0x...
 ```
 
-The wallets and A-Token are public chain identifiers; the API id/key are never
-sent to `apps/web`. Use wallets that already have active, unexpired sandbox
-A-Passes **on ethereum (Sepolia)**. If a sandbox identity is missing, frozen,
-expired, or ineligible for the A-Token, the API returns a specific `CVI_*` code
-and records the failed gate in the audit trail. `POST /api/demo/seed` refuses to
-fabricate verification when these values are missing.
+Connect an account that already holds an active Cleanverse UAT A-Pass for the
+selected network (`ethereum` = Sepolia in UAT). To run Lender A then Lender B,
+**switch MetaMask accounts** between financing attempts. API id/key never go to
+`apps/web`. Failed CVI checks return `CVI_*` codes and are audited.
 
 ## Five-minute judge path
 
-1. Open `http://localhost:3000/issuer`. Confirm the issuer shows **Sandbox
-   ready**, submit the invoice, and see **CVI verified** plus **Registry clean**.
-2. Continue to `/lender`, open the highlighted invoice, and finance as Lender A.
-   The API runs `query_apass` and `verify_apass` before registering priority #1.
-3. Switch to Lender B and retry the same fingerprint. Lender B is verified first,
-   then the registry responds `409 / FINANCING_BLOCKED` with the existing lien.
-4. Open `/compliance` to inspect the issuer/lender CVI events, first lien, and
-   duplicate rejection for the same fingerprint.
-5. Export the filtered evidence with **CSV** or **JSON**. For a one-click fallback,
-   choose **Seed judge scenario** on `/compliance`; it creates a fresh verified
-   invoice, finances it once, and optionally captures the conflicting attempt.
+1. Open `http://localhost:3000/issuer`. **Connect** the issuer MetaMask account
+   (A-Pass on ethereum/Sepolia), submit the invoice, and see **CVI verified**
+   plus **Registry clean**.
+2. Continue to `/lender`, connect the **Lender A** wallet, open the invoice, and
+   finance. The API runs `query_apass` / `verify_apass` on that address, then
+   registers the global first lien (+ Sepolia dual-write when enabled).
+3. Switch MetaMask to a **different** Lender B account, select the conflict
+   network (default `base`), and retry. Registry responds `409` with
+   `CROSS_CHAIN_REPLEDGE` (or same-network duplicate block).
+4. Open `/compliance` for the audit trail and export CSV/JSON.
 
 Relevant endpoints:
 

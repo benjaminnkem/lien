@@ -1,5 +1,6 @@
 "use client";
 
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -41,6 +42,7 @@ import {
   useCreateFingerprint,
   useDemoConfig,
 } from "@/hooks/use-assets";
+import { useConnectedWallet } from "@/hooks/use-connected-wallet";
 import { ApiError, getApiErrorMessage } from "@/lib/api";
 import type { EncumbranceResult, FingerprintResult } from "@/lib/asset-types";
 import { cn } from "@/lib/utils";
@@ -57,7 +59,9 @@ const invoiceSchema = z.object({
   currency: z.string().length(3, "Use a 3-letter currency code"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD"),
   chain: z.string().min(1),
-  issuerWallet: z.string().min(8, "Enter the issuer A-Pass wallet"),
+  issuerWallet: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Connect an issuer wallet"),
   atokenAddress: z.string().min(8, "Enter the A-Token address"),
 });
 
@@ -75,6 +79,7 @@ export function IssuerPage() {
   const createFingerprint = useCreateFingerprint();
   const checkEncumbrance = useCheckEncumbrance();
   const demoConfig = useDemoConfig();
+  const { address, isConnected } = useConnectedWallet();
   const [fingerprintResult, setFingerprintResult] =
     useState<FingerprintResult | null>(null);
   const [registryResult, setRegistryResult] =
@@ -106,29 +111,43 @@ export function IssuerPage() {
 
   useEffect(() => {
     const config = demoConfig.data;
-    if (
-      !config?.ready ||
-      !config.atokenAddress ||
-      !config.parties.issuer.wallet
-    )
-      return;
+    if (!config) return;
     form.setValue("chain", config.chain);
     form.setValue("issuerCvi", config.parties.issuer.cvi);
     form.setValue("debtorCvi", config.debtorCvi);
-    form.setValue("issuerWallet", config.parties.issuer.wallet);
-    form.setValue("atokenAddress", config.atokenAddress);
+    if (config.atokenAddress) {
+      form.setValue("atokenAddress", config.atokenAddress);
+    }
   }, [demoConfig.data, form]);
+
+  useEffect(() => {
+    if (address) {
+      form.setValue("issuerWallet", address, { shouldValidate: true });
+    } else {
+      form.setValue("issuerWallet", "", { shouldValidate: true });
+    }
+  }, [address, form]);
 
   const isSubmitting =
     createFingerprint.isPending || checkEncumbrance.isPending;
+  const canSubmit = isConnected && Boolean(address);
 
   async function submit(values: InvoiceForm) {
+    if (!address) {
+      toast.error("Connect a wallet", {
+        description:
+          "Issuer A-Pass is verified against the wallet connected in the browser.",
+      });
+      return;
+    }
+
     setFingerprintResult(null);
     setRegistryResult(null);
 
     try {
       const created = await createFingerprint.mutateAsync({
         ...values,
+        issuerWallet: address,
         currency: values.currency.toUpperCase(),
       });
       setFingerprintResult(created);
@@ -169,8 +188,9 @@ export function IssuerPage() {
     form.reset({
       ...form.getValues(),
       invoiceNumber: createInvoiceNumber(),
+      issuerWallet: address ?? "",
     });
-    toast.info("Fresh demo invoice ready");
+    toast.info("Fresh invoice ready");
   }
 
   return (
@@ -295,13 +315,25 @@ export function IssuerPage() {
                         {...form.register("chain")}
                       >
                         <NativeSelectOption value="ethereum">
-                          Ethereum Sepolia
+                          Ethereum (Sepolia UAT)
+                        </NativeSelectOption>
+                        <NativeSelectOption value="base">
+                          Base
+                        </NativeSelectOption>
+                        <NativeSelectOption value="arbitrum">
+                          Arbitrum
+                        </NativeSelectOption>
+                        <NativeSelectOption value="polygon">
+                          Polygon
+                        </NativeSelectOption>
+                        <NativeSelectOption value="monad">
+                          Monad
                         </NativeSelectOption>
                       </NativeSelect>
                       <FieldDescription>
-                        Cleanverse UAT maps{" "}
-                        <code className="text-xs">ethereum</code> to Sepolia.
-                        Lien is testnet-only for the demo.
+                        CVI settlement network for this submission. The asset
+                        fingerprint is chain-agnostic — a lien on one network
+                        blocks every other network.
                       </FieldDescription>
                     </Field>
                   </div>
@@ -315,15 +347,43 @@ export function IssuerPage() {
                         label={
                           fingerprintResult?.issuerVerification
                             ? "CVI verified"
-                            : demoConfig.data?.ready
-                              ? "Sandbox ready"
-                              : "Needs sandbox wallets"
+                            : isConnected
+                              ? "Wallet connected"
+                              : "Connect wallet"
                         }
                         tone={
                           fingerprintResult?.issuerVerification
                             ? "clean"
-                            : "neutral"
+                            : isConnected
+                              ? "clean"
+                              : "neutral"
                         }
+                      />
+                    </div>
+                    <div className="mb-5 rounded-2xl border border-border/70 bg-background/70 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                            Connected issuer wallet
+                          </p>
+                          <p className="mt-1 font-mono text-xs break-all">
+                            {address ?? "No wallet connected"}
+                          </p>
+                          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                            Cleanverse A-Pass is checked against this address.
+                            Switch account in your wallet to act as a different
+                            issuer.
+                          </p>
+                        </div>
+                        <ConnectButton
+                          showBalance={false}
+                          chainStatus="icon"
+                          accountStatus="address"
+                        />
+                      </div>
+                      <input type="hidden" {...form.register("issuerWallet")} />
+                      <FieldError
+                        errors={[form.formState.errors.issuerWallet]}
                       />
                     </div>
                     <div className="grid gap-5 sm:grid-cols-2">
@@ -359,29 +419,7 @@ export function IssuerPage() {
                         />
                       </Field>
                     </div>
-                    <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                      <Field
-                        data-invalid={Boolean(
-                          form.formState.errors.issuerWallet,
-                        )}
-                      >
-                        <FieldLabel htmlFor="issuer-wallet">
-                          Issuer A-Pass wallet
-                        </FieldLabel>
-                        <Input
-                          id="issuer-wallet"
-                          data-testid="issuer-wallet"
-                          className="font-mono text-xs"
-                          placeholder="0x…"
-                          aria-invalid={Boolean(
-                            form.formState.errors.issuerWallet,
-                          )}
-                          {...form.register("issuerWallet")}
-                        />
-                        <FieldError
-                          errors={[form.formState.errors.issuerWallet]}
-                        />
-                      </Field>
+                    <div className="mt-5">
                       <Field
                         data-invalid={Boolean(
                           form.formState.errors.atokenAddress,
@@ -400,6 +438,9 @@ export function IssuerPage() {
                           )}
                           {...form.register("atokenAddress")}
                         />
+                        <FieldDescription>
+                          Public Cleanverse A-Token used for verify_apass.
+                        </FieldDescription>
                         <FieldError
                           errors={[form.formState.errors.atokenAddress]}
                         />
@@ -436,7 +477,7 @@ export function IssuerPage() {
                     data-testid="create-fingerprint"
                     type="submit"
                     size="lg"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !canSubmit}
                     className="mt-1 h-12 w-full"
                   >
                     {isSubmitting ? (
@@ -445,6 +486,11 @@ export function IssuerPage() {
                         {createFingerprint.isPending
                           ? "Creating fingerprint…"
                           : "Checking registry…"}
+                      </>
+                    ) : !canSubmit ? (
+                      <>
+                        <WalletCards />
+                        Connect wallet to continue
                       </>
                     ) : (
                       <>

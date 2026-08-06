@@ -23,16 +23,14 @@ export default () => ({
   },
   demo: {
     chain: process.env.DEMO_CHAIN ?? 'ethereum',
+    conflictChain: process.env.DEMO_CONFLICT_CHAIN ?? 'base',
     atokenAddress:
       process.env.DEMO_ATOKEN_ADDRESS ??
       '0xaC0893567D43C3E7e6e35a72803df05416C1f20D',
     issuerCvi: process.env.DEMO_ISSUER_CVI ?? 'cvi:issuer:atlas-manufacturing',
-    issuerWallet: process.env.DEMO_ISSUER_WALLET ?? '',
     debtorCvi: process.env.DEMO_DEBTOR_CVI ?? 'cvi:debtor:northline-retail',
     lenderACvi: process.env.DEMO_LENDER_A_CVI ?? 'cvi:lender:northstar-capital',
-    lenderAWallet: process.env.DEMO_LENDER_A_WALLET ?? '',
     lenderBCvi: process.env.DEMO_LENDER_B_CVI ?? 'cvi:lender:meridian-credit',
-    lenderBWallet: process.env.DEMO_LENDER_B_WALLET ?? '',
   },
   chain: {
     enabled: (process.env.CHAIN_ENABLED ?? 'false') === 'true',

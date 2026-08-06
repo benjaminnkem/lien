@@ -14,8 +14,6 @@ import {
   Fingerprint,
   Landmark,
   ListChecks,
-  LoaderCircle,
-  Play,
   Download,
   Search,
   SearchCheck,
@@ -23,14 +21,15 @@ import {
   ShieldX,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CopyButton } from "@/components/copy-button";
 import { DemoProgress } from "@/components/demo-progress";
 import { StatusBadge } from "@/components/status-badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Drawer,
@@ -44,16 +43,7 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useAssets, useAuditEvents, useSeedDemo } from "@/hooks/use-assets";
+import { useAssets, useAuditEvents } from "@/hooks/use-assets";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getApiErrorMessage, getAuditExportUrl } from "@/lib/api";
 import type { AuditEvent, AuditEventType } from "@/lib/asset-types";
@@ -168,16 +158,10 @@ export function CompliancePage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const auditQuery = useAuditEvents(activeFingerprint);
   const assetsQuery = useAssets();
-  const seedDemo = useSeedDemo();
-  const loadSeed = useDemoStore((state) => state.loadSeed);
-  const [seedOpen, setSeedOpen] = useState(false);
 
   const form = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
     defaultValues: { fingerprint: demoFingerprint ?? "" },
-  });
-  const seedForm = useForm<{ includeConflict: boolean }>({
-    defaultValues: { includeConflict: true },
   });
 
   useEffect(() => {
@@ -218,52 +202,6 @@ export function CompliancePage() {
     setDrawerOpen(true);
   }
 
-  async function createDemo(values: { includeConflict: boolean }) {
-    try {
-      const result = await seedDemo.mutateAsync(values.includeConflict);
-      const { config } = result;
-      const issuerWallet = config.parties.issuer.wallet;
-      const lenderAWallet = config.parties.lenderA.wallet;
-      const lenderBWallet = config.parties.lenderB.wallet;
-      if (
-        !config.atokenAddress ||
-        !issuerWallet ||
-        !lenderAWallet ||
-        !lenderBWallet
-      ) {
-        throw new Error(
-          "The API returned an incomplete demo identity configuration",
-        );
-      }
-      loadSeed({
-        fingerprint: result.fingerprint.fingerprint,
-        invoiceNumber: result.invoice.invoiceNumber,
-        lienId: result.firstFinance.lien.id,
-        blocked: result.conflict.blocked,
-        config: {
-          chain: config.chain,
-          atokenAddress: config.atokenAddress,
-          issuer: { cvi: config.parties.issuer.cvi, wallet: issuerWallet },
-          lenderA: { cvi: config.parties.lenderA.cvi, wallet: lenderAWallet },
-          lenderB: { cvi: config.parties.lenderB.cvi, wallet: lenderBWallet },
-          debtorCvi: config.debtorCvi,
-        },
-      });
-      setManualFingerprint(result.fingerprint.fingerprint);
-      form.setValue("fingerprint", result.fingerprint.fingerprint);
-      setSeedOpen(false);
-      toast.success("Judge scenario is ready", {
-        description: result.conflict.blocked
-          ? `Three CVIs verified, first lien registered, and duplicate blocked across ${result.auditCount} events.`
-          : `Three sandbox identities loaded and first lien registered across ${result.auditCount} events.`,
-      });
-    } catch (error) {
-      toast.error("Could not seed the demo", {
-        description: getApiErrorMessage(error),
-      });
-    }
-  }
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
       <DemoProgress />
@@ -288,14 +226,12 @@ export function CompliancePage() {
 
           <div className="flex w-full max-w-2xl flex-col gap-3">
             <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-              <Button
-                type="button"
-                onClick={() => setSeedOpen(true)}
-                data-testid="open-demo-seed"
+              <Link
+                href="/issuer"
+                className={cn(buttonVariants(), "inline-flex")}
               >
-                <Play />
-                Seed judge scenario
-              </Button>
+                Run live issuer flow
+              </Link>
               <Button
                 variant="outline"
                 render={
@@ -653,88 +589,6 @@ export function CompliancePage() {
           </aside>
         </div>
       </div>
-
-      <Dialog open={seedOpen} onOpenChange={setSeedOpen}>
-        <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
-          <div className="bg-[#102a26] px-6 py-7 text-white">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-emerald-300 text-[#102a26]">
-              <Play className="size-5" />
-            </span>
-            <DialogHeader className="mt-5">
-              <DialogTitle className="text-2xl text-white">
-                Seed the judge scenario
-              </DialogTitle>
-              <DialogDescription className="leading-6 text-emerald-50/60">
-                Verify three sandbox CVIs, register a new invoice, finance it
-                once, and optionally capture the expected duplicate block.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <form
-            onSubmit={seedForm.handleSubmit(createDemo)}
-            className="space-y-5 px-6 pb-6"
-          >
-            <div className="grid grid-cols-3 gap-2">
-              {["Issuer CVI", "Lender A", "Lender B"].map((label, index) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-border bg-muted/35 p-3 text-center"
-                >
-                  <span className="mx-auto flex size-7 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">
-                    {index + 1}
-                  </span>
-                  <p className="mt-2 text-xs font-semibold">{label}</p>
-                </div>
-              ))}
-            </div>
-            <Controller
-              name="includeConflict"
-              control={seedForm.control}
-              render={({ field }) => (
-                <label className="flex items-start gap-3 rounded-2xl border border-border p-4">
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked)}
-                    className="mt-0.5"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold">
-                      Include Lender B conflict
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                      Attempts the same fingerprint twice and records
-                      FINANCING_BLOCKED.
-                    </span>
-                  </span>
-                </label>
-              )}
-            />
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSeedOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={seedDemo.isPending}
-                data-testid="seed-demo"
-              >
-                {seedDemo.isPending ? (
-                  <LoaderCircle className="animate-spin" />
-                ) : (
-                  <Play />
-                )}
-                {seedDemo.isPending
-                  ? "Verifying & seeding…"
-                  : "Create scenario"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <Drawer
         open={drawerOpen}

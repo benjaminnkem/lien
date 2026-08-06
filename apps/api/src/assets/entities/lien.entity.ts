@@ -52,6 +52,9 @@ export class LienEntity {
   @Column({ type: 'varchar', length: 128, nullable: true })
   txHash!: string | null;
 
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  settlementChain!: string | null;
+
   @CreateDateColumn({ type: 'datetime' })
   registeredAt!: Date;
 }

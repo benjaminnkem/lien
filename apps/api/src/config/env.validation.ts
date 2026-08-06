@@ -78,6 +78,10 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  DEMO_CONFLICT_CHAIN?: string;
+
+  @IsOptional()
+  @IsString()
   DEMO_ATOKEN_ADDRESS?: string;
 
   @IsOptional()

@@ -11,24 +11,62 @@ export type CleanverseChain =
   | "platon"
   | string;
 
-/**
- * Lien demo runs entirely on Ethereum Sepolia.
- * Cleanverse UAT expects the network name `ethereum` for Sepolia (not "sepolia").
- */
-export const LIEN_CLEANVERSE_CHAIN = "ethereum" as const satisfies CleanverseChain;
+export const LIEN_CLEANVERSE_CHAIN =
+  "ethereum" as const satisfies CleanverseChain;
 
-/** EVM chain id for Ethereum Sepolia */
 export const LIEN_EVM_CHAIN_ID = 11_155_111;
 
-/** Human-readable network label for UI */
 export const LIEN_EVM_NETWORK_LABEL = "Ethereum Sepolia";
 
-/**
- * Cleanverse UAT aUSDC on `ethereum` (Sepolia).
- * Used as the default demo A-Token for CVI verify_apass gates.
- */
 export const LIEN_DEMO_ATOKEN_ADDRESS =
   "0xaC0893567D43C3E7e6e35a72803df05416C1f20D" as const;
+
+export const LIEN_SETTLEMENT_NETWORKS = [
+  "ethereum",
+  "base",
+  "arbitrum",
+  "polygon",
+  "optimism",
+  "monad",
+  "bsc",
+  "avalanche",
+] as const;
+
+export type LienSettlementNetwork = (typeof LIEN_SETTLEMENT_NETWORKS)[number];
+
+export const LIEN_NETWORK_LABELS: Record<string, string> = {
+  ethereum: "Ethereum (Sepolia in UAT)",
+  base: "Base",
+  arbitrum: "Arbitrum",
+  polygon: "Polygon",
+  optimism: "Optimism",
+  monad: "Monad",
+  bsc: "BNB Chain",
+  avalanche: "Avalanche",
+};
+
+export function normalizeSettlementNetwork(
+  chain: string | null | undefined,
+): string | null {
+  if (!chain) return null;
+  return chain.trim().toLowerCase();
+}
+
+export function isCrossChainAttempt(
+  settlementChain: string | null | undefined,
+  attemptedChain: string | null | undefined,
+): boolean {
+  const settlement = normalizeSettlementNetwork(settlementChain);
+  const attempted = normalizeSettlementNetwork(attemptedChain);
+  if (!settlement || !attempted) return false;
+  return settlement !== attempted;
+}
+
+export function formatNetworkLabel(chain: string | null | undefined): string {
+  if (!chain) return "unknown network";
+  const key = chain.trim().toLowerCase();
+  return LIEN_NETWORK_LABELS[key] ?? chain;
+}
 
 export type CviRef = {
   chain: CleanverseChain;

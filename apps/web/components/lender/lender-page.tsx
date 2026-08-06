@@ -20,8 +20,10 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  WalletCards,
   X,
 } from "lucide-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -45,6 +47,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAssets, useDemoConfig, useFinanceAsset } from "@/hooks/use-assets";
+import { useConnectedWallet } from "@/hooks/use-connected-wallet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ApiError, getApiErrorMessage } from "@/lib/api";
 import type {
@@ -52,8 +55,13 @@ import type {
   FinanceResult,
   FinancingBlockedPayload,
 } from "@/lib/asset-types";
+import { networkLabel, SETTLEMENT_NETWORKS } from "@/lib/networks";
 import { cn } from "@/lib/utils";
 import { useDemoStore } from "@/stores/demo-store";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 
 const fingerprintSchema = z.object({
   fingerprint: z
@@ -101,10 +109,15 @@ function formatDate(value: string) {
   }).format(date);
 }
 
+function shortAddress(value: string) {
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
 export function LenderPage() {
   const assetsQuery = useAssets();
   const demoConfig = useDemoConfig();
   const finance = useFinanceAsset();
+  const { address, isConnected } = useConnectedWallet();
   const isMobile = useIsMobile();
   const [identity, setIdentity] = useState<LenderIdentity>("a");
   const [drawerFingerprint, setDrawerFingerprint] = useState<string | null>(
@@ -115,6 +128,7 @@ export function LenderPage() {
     null,
   );
   const [blocked, setBlocked] = useState<FinancingBlockedPayload | null>(null);
+  const [attemptChain, setAttemptChain] = useState("ethereum");
   const demoFingerprint = useDemoStore((state) => state.fingerprint);
   const selectFingerprint = useDemoStore((state) => state.selectFingerprint);
   const markFinanced = useDemoStore((state) => state.markFinanced);
@@ -126,13 +140,11 @@ export function LenderPage() {
         ...lenderDefaults.a,
         cvi: config?.parties.lenderA.cvi ?? lenderDefaults.a.cvi,
         name: config?.parties.lenderA.label ?? lenderDefaults.a.name,
-        wallet: config?.parties.lenderA.wallet ?? "",
       },
       b: {
         ...lenderDefaults.b,
         cvi: config?.parties.lenderB.cvi ?? lenderDefaults.b.cvi,
         name: config?.parties.lenderB.label ?? lenderDefaults.b.name,
-        wallet: config?.parties.lenderB.wallet ?? "",
       },
     };
   }, [demoConfig.data]);
@@ -177,6 +189,7 @@ export function LenderPage() {
     selectFingerprint(asset.fingerprint);
     setFinanceResult(null);
     setBlocked(null);
+    setAttemptChain(asset.chain ?? demoConfig.data?.chain ?? "ethereum");
     setDrawerOpen(true);
   }
 
@@ -196,10 +209,19 @@ export function LenderPage() {
 
   async function financeSelected() {
     if (!selected) return;
-    if (!currentLender.wallet || !selected.atokenAddress) {
-      toast.error("Lender CVI setup required", {
+    if (!isConnected || !address) {
+      toast.error("Connect a lender wallet", {
         description:
-          "Configure the sandbox lender wallet and A-Token on the API before financing.",
+          "Financing uses the browser-connected wallet for Cleanverse A-Pass verification.",
+      });
+      return;
+    }
+    const atokenAddress =
+      selected.atokenAddress ?? demoConfig.data?.atokenAddress ?? null;
+    if (!atokenAddress) {
+      toast.error("A-Token required", {
+        description:
+          "The asset or DEMO_ATOKEN_ADDRESS must provide a verification A-Token.",
       });
       return;
     }
@@ -210,14 +232,14 @@ export function LenderPage() {
       const result = await finance.mutateAsync({
         fingerprint: selected.fingerprint,
         lenderCvi: currentLender.cvi,
-        lenderWallet: currentLender.wallet,
-        chain: selected.chain ?? "ethereum",
-        atokenAddress: selected.atokenAddress,
+        lenderWallet: address,
+        chain: attemptChain,
+        atokenAddress,
       });
       setFinanceResult(result);
       markFinanced(result.lien.id);
       toast.success("First-priority lien registered", {
-        description: `${currentLender.name} now holds priority #1 on ${result.asset.invoiceNumber}.`,
+        description: `${currentLender.name} (${shortAddress(address)}) holds global priority #1 on ${result.asset.invoiceNumber} (${networkLabel(result.lien.settlementChain ?? attemptChain)}).`,
       });
     } catch (error) {
       if (
@@ -225,12 +247,19 @@ export function LenderPage() {
         error.status === 409 &&
         error.code === "FINANCING_BLOCKED"
       ) {
-        setBlocked(error.payload as FinancingBlockedPayload);
+        const payload = error.payload as FinancingBlockedPayload;
+        setBlocked(payload);
         markBlocked();
-        toast.error("Duplicate financing blocked", {
-          description:
-            "An active first-priority claim already protects this receivable.",
-        });
+        toast.error(
+          payload.crossChain
+            ? "Cross-chain re-pledge blocked"
+            : "Duplicate financing blocked",
+          {
+            description:
+              error.message ||
+              "An active first-priority claim already protects this receivable on every network.",
+          },
+        );
         return;
       }
       toast.error("Financing request failed", {
@@ -243,12 +272,20 @@ export function LenderPage() {
   }
 
   function switchToLenderB() {
+    const settlement =
+      financeResult?.lien.settlementChain ??
+      selected?.chain ??
+      demoConfig.data?.chain ??
+      "ethereum";
+    const conflict =
+      demoConfig.data?.conflictChain ??
+      (settlement === "base" ? "ethereum" : "base");
     setIdentity("b");
     setFinanceResult(null);
     setBlocked(null);
+    setAttemptChain(conflict);
     toast.info("Desk switched to Lender B", {
-      description:
-        "Retry the same fingerprint to demonstrate duplicate protection.",
+      description: `Switch MetaMask to a different A-Pass wallet, then retry on ${networkLabel(conflict)}.`,
     });
   }
 
@@ -269,81 +306,96 @@ export function LenderPage() {
               Finance with certainty.
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              Review verified receivables, register the first claim, and fail
-              closed when the same asset appears again.
+              Connect a lender wallet with a Cleanverse A-Pass, register a
+              global first claim, then switch accounts to prove another network
+              cannot re-pledge the same fingerprint.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-border/75 bg-white/70 p-1.5 shadow-sm backdrop-blur">
-            <p className="px-2 pb-1.5 pt-1 text-[9px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-              Active desk identity
-            </p>
-            <div className="flex gap-1">
-              {(Object.keys(lenders) as LenderIdentity[]).map((key) => {
-                const lender = lenders[key];
-                const active = identity === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setIdentity(key);
-                      setFinanceResult(null);
-                      setBlocked(null);
-                    }}
-                    className={cn(
-                      "relative flex min-w-36 items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors",
-                      active
-                        ? "text-white"
-                        : "text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {active && (
-                      <motion.span
-                        layoutId="lender-identity"
-                        className="absolute inset-0 rounded-xl bg-[#102a26]"
-                        transition={{
-                          type: "spring",
-                          stiffness: 380,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-                    <span
+          <div className="flex flex-col gap-3 sm:items-end">
+            <div className="rounded-2xl border border-border/75 bg-white/70 p-3 shadow-sm backdrop-blur">
+              <p className="mb-2 text-[9px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                Connected lender wallet
+              </p>
+              <p className="mb-3 font-mono text-[11px] break-all">
+                {address ? shortAddress(address) : "Not connected"}
+              </p>
+              <ConnectButton
+                showBalance={false}
+                chainStatus="icon"
+                accountStatus="address"
+              />
+            </div>
+            <div className="rounded-2xl border border-border/75 bg-white/70 p-1.5 shadow-sm backdrop-blur">
+              <p className="px-2 pb-1.5 pt-1 text-[9px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                Desk role label
+              </p>
+              <div className="flex gap-1">
+                {(Object.keys(lenders) as LenderIdentity[]).map((key) => {
+                  const lender = lenders[key];
+                  const active = identity === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setIdentity(key);
+                        setFinanceResult(null);
+                        setBlocked(null);
+                        if (key === "b") {
+                          const settlement =
+                            selected?.chain ??
+                            demoConfig.data?.chain ??
+                            "ethereum";
+                          const conflict =
+                            demoConfig.data?.conflictChain ??
+                            (settlement === "base" ? "ethereum" : "base");
+                          setAttemptChain(conflict);
+                        }
+                      }}
                       className={cn(
-                        "relative flex size-7 items-center justify-center rounded-lg bg-muted text-[10px] font-bold",
-                        active && "bg-white/10 text-white",
+                        "relative flex min-w-36 items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors",
+                        active
+                          ? "text-white"
+                          : "text-muted-foreground hover:bg-muted",
                       )}
                     >
-                      {lender.initials}
-                    </span>
-                    <span className="relative">
-                      <span className="block text-xs font-semibold">
-                        {lender.short}
-                      </span>
+                      {active && (
+                        <motion.span
+                          layoutId="lender-identity"
+                          className="absolute inset-0 rounded-xl bg-[#102a26]"
+                          transition={{
+                            type: "spring",
+                            stiffness: 380,
+                            damping: 30,
+                          }}
+                        />
+                      )}
                       <span
                         className={cn(
-                          "block text-[9px]",
-                          active ? "text-white/55" : "text-muted-foreground",
+                          "relative flex size-7 items-center justify-center rounded-lg bg-muted text-[10px] font-bold",
+                          active && "bg-white/10 text-white",
                         )}
                       >
-                        {lender.name}
+                        {lender.initials}
                       </span>
-                    </span>
-                    <span
-                      className={cn(
-                        "relative ml-auto size-2 rounded-full",
-                        lender.wallet ? "bg-emerald-300" : "bg-amber-300",
-                      )}
-                      title={
-                        lender.wallet
-                          ? "Sandbox A-Pass wallet configured"
-                          : "Sandbox wallet missing"
-                      }
-                    />
-                  </button>
-                );
-              })}
+                      <span className="relative">
+                        <span className="block text-xs font-semibold">
+                          {lender.short}
+                        </span>
+                        <span
+                          className={cn(
+                            "block text-[9px]",
+                            active ? "text-white/55" : "text-muted-foreground",
+                          )}
+                        >
+                          {lender.name}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -609,16 +661,18 @@ export function LenderPage() {
                             Financing rejected
                           </p>
                           <p className="mt-1 font-heading text-xl font-semibold">
-                            Duplicate claim blocked
+                            {blocked.crossChain
+                              ? "Cross-chain re-pledge blocked"
+                              : "Duplicate claim blocked"}
                           </p>
                         </div>
                       </div>
                     </div>
                     <div className="p-5">
                       <p className="text-sm leading-6 text-rose-950/75">
-                        This receivable already has an active first-priority
-                        claim. Lien stopped the second pledge before funds could
-                        move.
+                        {typeof blocked.message === "string"
+                          ? blocked.message
+                          : "This receivable already has a global first-priority claim. Lien stopped the second pledge before funds could move."}
                       </p>
                       <div className="mt-4 space-y-2 rounded-2xl bg-white/70 p-4 text-xs">
                         <div className="flex items-center justify-between gap-3">
@@ -626,8 +680,27 @@ export function LenderPage() {
                             Reason code
                           </span>
                           <code className="font-semibold text-rose-700">
-                            FINANCING_BLOCKED
+                            {blocked.reason ?? "FINANCING_BLOCKED"}
                           </code>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">
+                            Settlement network
+                          </span>
+                          <span className="text-right font-medium">
+                            {networkLabel(
+                              blocked.settlementChain ??
+                                blocked.existingLien?.settlementChain,
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-muted-foreground">
+                            Attempted network
+                          </span>
+                          <span className="text-right font-medium">
+                            {networkLabel(blocked.attemptedChain ?? attemptChain)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-muted-foreground">
@@ -640,9 +713,11 @@ export function LenderPage() {
                         </div>
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-muted-foreground">
-                            Attempting lender
+                            Scope
                           </span>
-                          <StatusBadge label="CVI verified" tone="clean" />
+                          <span className="font-medium">
+                            Global fingerprint
+                          </span>
                         </div>
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-muted-foreground">
@@ -692,9 +767,16 @@ export function LenderPage() {
                     </div>
                     <div className="mt-4 space-y-2 rounded-2xl bg-white/65 p-4 font-mono text-[10px] break-all text-muted-foreground">
                       <p>Lien ID · {financeResult.lien.id}</p>
+                      <p>
+                        Settlement ·{" "}
+                        {networkLabel(
+                          financeResult.lien.settlementChain ?? attemptChain,
+                        )}
+                      </p>
+                      <p>Scope · global fingerprint</p>
                       {financeResult.onChain?.registered && (
                         <>
-                          <p>Sepolia tx · {financeResult.onChain.txHash}</p>
+                          <p>Hub proof tx · {financeResult.onChain.txHash}</p>
                           <a
                             href={financeResult.onChain.explorerUrl}
                             target="_blank"
@@ -743,6 +825,34 @@ export function LenderPage() {
               </div>
 
               <div className="mt-6">
+                <Field>
+                  <FieldLabel htmlFor="attempt-chain">
+                    Attempt settlement network
+                  </FieldLabel>
+                  <NativeSelect
+                    id="attempt-chain"
+                    className="w-full"
+                    value={attemptChain}
+                    onChange={(event) => setAttemptChain(event.target.value)}
+                    disabled={Boolean(financeResult) || Boolean(blocked)}
+                  >
+                    {SETTLEMENT_NETWORKS.map((network) => (
+                      <NativeSelectOption
+                        key={network.value}
+                        value={network.value}
+                      >
+                        {network.label}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    Fingerprint is chain-agnostic. Financing on one network
+                    blocks the same invoice on every other network.
+                  </p>
+                </Field>
+              </div>
+
+              <div className="mt-6">
                 <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
                   Asset evidence
                 </p>
@@ -750,12 +860,15 @@ export function LenderPage() {
                   {[
                     ["Issuer CVI", selected.fields.issuerCvi],
                     ["Debtor CVI", selected.fields.debtorCvi],
-                    ["Network", selected.chain ?? "ethereum"],
                     [
-                      "Registry state",
+                      "Original network",
+                      networkLabel(selected.chain ?? "ethereum"),
+                    ],
+                    [
+                      "Registry scope",
                       selected.isClean
-                        ? "No active lien"
-                        : "Priority #1 lien active",
+                        ? "Global · clean"
+                        : "Global · priority #1 active",
                     ],
                   ].map(([label, value]) => (
                     <div
@@ -795,15 +908,15 @@ export function LenderPage() {
                         financeResult?.lenderVerification ||
                         blocked?.lenderVerification
                           ? "Lender CVI verified"
-                          : currentLender.wallet && selected.atokenAddress
+                          : address
                             ? "Ready to verify"
-                            : "Configuration missing"
+                            : "Connect wallet"
                       }
                       tone={
                         financeResult?.lenderVerification ||
                         blocked?.lenderVerification
                           ? "clean"
-                          : currentLender.wallet && selected.atokenAddress
+                          : address
                             ? "neutral"
                             : "blocked"
                       }
@@ -811,15 +924,13 @@ export function LenderPage() {
                     />
                   </div>
                   <p className="mt-2 leading-6">
-                    Financing calls queryApass and verifyApass for{" "}
-                    {currentLender.name} before the registry can create a lien.
-                    API credentials stay server-side.
+                    Financing calls queryApass and verifyApass for the{" "}
+                    <strong>connected wallet</strong> before the registry can
+                    create a lien. Switch accounts to act as a different lender.
                   </p>
-                  {currentLender.wallet && (
-                    <p className="mt-2 truncate font-mono text-[10px] text-sky-800/65">
-                      {currentLender.wallet}
-                    </p>
-                  )}
+                  <p className="mt-2 font-mono text-[10px] text-sky-800/65 break-all">
+                    {address ?? "No wallet connected"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -831,7 +942,7 @@ export function LenderPage() {
                 data-testid="finance-asset"
                 size="lg"
                 onClick={financeSelected}
-                disabled={finance.isPending}
+                disabled={finance.isPending || !isConnected || !address}
                 className={cn(
                   "h-12 w-full",
                   identity === "b" &&
@@ -842,6 +953,11 @@ export function LenderPage() {
                   <>
                     <LoaderCircle className="animate-spin" />
                     Checking registry & registering…
+                  </>
+                ) : !isConnected || !address ? (
+                  <>
+                    <WalletCards />
+                    Connect lender wallet
                   </>
                 ) : identity === "a" ? (
                   <>

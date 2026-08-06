@@ -107,6 +107,7 @@ export type LienRecord = {
   status: "active" | "released";
   cvaId: string | null;
   txHash: string | null;
+  settlementChain?: string | null;
   registeredAt: string;
 };
 
@@ -128,12 +129,14 @@ export type OnChainLienResult =
 export type FinanceResult = {
   success: true;
   fingerprint: string;
+  scope?: "global";
   asset: {
     id: string;
     status: AssetStatus;
     invoiceNumber: string;
     amount: string;
     currency: string;
+    chain?: string | null;
   };
   lien: LienRecord;
   lenderVerification: PartyVerification;
@@ -160,16 +163,27 @@ export type AuditEvent = {
 };
 
 export type FinancingBlockedPayload = {
+  message?: string;
   code?: string;
+  reason?: string;
   fingerprint?: string;
+  scope?: "global";
+  crossChain?: boolean;
+  attemptedChain?: string;
+  settlementChain?: string | null;
+  source?: string;
   existingLien?: {
-    id: string;
-    lenderCvi: string;
-    priority: number;
-    registeredAt: string;
-    cvaId: string | null;
+    id?: string;
+    lenderCvi?: string;
+    priority?: number;
+    registeredAt?: string | number | null;
+    cvaId?: string | null;
+    txHash?: string | null;
+    settlementChain?: string | null;
+    lender?: string | null;
+    registryAddress?: string | null;
   };
-  lenderVerification?: PartyVerification;
+  lenderVerification?: PartyVerification | null;
 };
 
 export type DemoParty = {
@@ -182,6 +196,7 @@ export type DemoConfig = {
   ready: boolean;
   missing: string[];
   chain: string;
+  conflictChain?: string;
   atokenAddress: string | null;
   parties: {
     issuer: DemoParty;
@@ -189,6 +204,8 @@ export type DemoConfig = {
     lenderB: DemoParty;
   };
   debtorCvi: string;
+  scope?: "global";
+  walletSource?: "browser" | "env";
 };
 
 export type DemoSeedResult = {

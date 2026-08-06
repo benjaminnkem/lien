@@ -161,25 +161,31 @@ describe('AssetsService', () => {
       fingerprint: created.fingerprint,
     });
     expect(checkClean.isClean).toBe(true);
+    expect(checkClean.scope).toBe('global');
 
     const financed = await service.finance({
       fingerprint: created.fingerprint,
       lenderCvi: 'cvi:lender:bank-a',
       lenderWallet: '0x2222222222222222222222222222222222222222',
+      chain: 'ethereum',
     });
     expect(financed.success).toBe(true);
     expect(financed.lien.priority).toBe(1);
+    expect(financed.lien.settlementChain).toBe('ethereum');
+    expect(financed.scope).toBe('global');
 
     const checkDirty = await service.check({
       fingerprint: created.fingerprint,
     });
     expect(checkDirty.isClean).toBe(false);
+    expect(checkDirty.settlementChain).toBe('ethereum');
 
     await expect(
       service.finance({
         fingerprint: created.fingerprint,
         lenderCvi: 'cvi:lender:bank-b',
         lenderWallet: '0x3333333333333333333333333333333333333333',
+        chain: 'ethereum',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
 
@@ -193,6 +199,49 @@ describe('AssetsService', () => {
     const csv = await service.exportAudit(created.fingerprint, 'csv');
     expect(csv).toContain('eventId,type,fingerprint,assetId,createdAt,payload');
     expect(csv).toContain('FINANCING_BLOCKED');
+  });
+
+  it('blocks cross-chain re-pledge of the same fingerprint', async () => {
+    const created = await service.createFingerprint(invoice);
+    await service.finance({
+      fingerprint: created.fingerprint,
+      lenderCvi: 'cvi:lender:bank-a',
+      lenderWallet: '0x2222222222222222222222222222222222222222',
+      chain: 'ethereum',
+    });
+
+    try {
+      await service.finance({
+        fingerprint: created.fingerprint,
+        lenderCvi: 'cvi:lender:bank-b',
+        lenderWallet: '0x3333333333333333333333333333333333333333',
+        chain: 'base',
+      });
+      throw new Error('expected cross-chain finance to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConflictException);
+      const payload = (error as ConflictException).getResponse() as Record<
+        string,
+        unknown
+      >;
+      expect(payload.code).toBe('FINANCING_BLOCKED');
+      expect(payload.reason).toBe('CROSS_CHAIN_REPLEDGE');
+      expect(payload.crossChain).toBe(true);
+      expect(payload.settlementChain).toBe('ethereum');
+      expect(payload.attemptedChain).toBe('base');
+      expect(payload.scope).toBe('global');
+      expect(String(payload.message)).toMatch(/Cross-chain re-pledge/i);
+    }
+
+    const audit = await service.listAudit(created.fingerprint);
+    const blocked = audit.find((event) => event.type === 'FINANCING_BLOCKED');
+    expect(blocked?.payload).toMatchObject({
+      crossChain: true,
+      attemptedChain: 'base',
+      settlementChain: 'ethereum',
+      reason: 'cross_chain_repledge',
+      scope: 'global',
+    });
   });
 
   it('fails closed and audits a frozen issuer A-Pass', async () => {

@@ -41,7 +41,8 @@ export class FinanceAssetDto {
 
   @ApiPropertyOptional({
     example: 'ethereum',
-    description: 'Cleanverse network name (ethereum = Sepolia in UAT).',
+    description:
+      'Attempted settlement / Cleanverse network. Fingerprint is chain-agnostic; a lien on any network blocks all others.',
   })
   @IsOptional()
   @IsString()
