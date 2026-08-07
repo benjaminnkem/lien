@@ -173,6 +173,24 @@ export const lienGuardAbi = [
       },
     ],
   },
+  {
+    type: "function",
+    name: "reserve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "obligationId", type: "bytes32" },
+      { name: "financingAmount", type: "uint256" },
+      { name: "expiry", type: "uint64" },
+    ],
+    outputs: [{ name: "reservationId", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "expireReservation",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "obligationId", type: "bytes32" }],
+    outputs: [],
+  },
 ] as const;
 
 export const demoFinanceAbi = [

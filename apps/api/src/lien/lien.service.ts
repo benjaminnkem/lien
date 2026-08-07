@@ -26,6 +26,8 @@ import {
   OBLIGATION_EIP712_TYPES,
   lienStateLabel,
   signableTerms,
+  buildClaimGraph,
+  auditEventsToCsv,
   type ObligationTerms,
 } from "@repo/sdk";
 import {
@@ -682,18 +684,223 @@ export class LienService {
     return this.audit.recent();
   }
 
-  async exportEvidencePack(obligationId: Hex) {
-    const detail = await this.getObligation(obligationId);
+  async getClaimGraph(obligationId: string) {
     const events = await this.audit.forObligation(obligationId);
     return {
+      obligationId,
+      nodes: buildClaimGraph(
+        events.map((e) => ({
+          id: e.id,
+          eventType: e.eventType,
+          outcome: e.outcome,
+          reasonCode: e.reasonCode,
+          createdAt: e.createdAt,
+          payload: e.payload,
+        })),
+      ),
+      events,
+    };
+  }
+
+  async exportEvidencePack(
+    obligationId: Hex,
+    format: "json" | "csv" = "json",
+  ) {
+    const detail = await this.getObligation(obligationId);
+    const events = await this.audit.forObligation(obligationId);
+    const pack = {
       exportedAt: new Date().toISOString(),
       trustMode: this.compliance.trustMode,
       settlementRail: this.compliance.settlementRail,
       obligation: detail.obligation,
       status: detail.status,
+      claimGraph: buildClaimGraph(
+        events.map((e) => ({
+          id: e.id,
+          eventType: e.eventType,
+          outcome: e.outcome,
+          reasonCode: e.reasonCode,
+          createdAt: e.createdAt,
+          payload: e.payload,
+        })),
+      ),
       auditTrail: events,
       disclaimer:
         "Protocol-level encumbrance evidence pack. Not a legal perfection certificate.",
+    };
+
+    if (format === "csv") {
+      return {
+        format: "csv" as const,
+        filename: `lien-evidence-${obligationId.slice(0, 10)}.csv`,
+        content: auditEventsToCsv(
+          events.map((e) => ({
+            eventType: e.eventType,
+            outcome: e.outcome,
+            reasonCode: e.reasonCode,
+            createdAt: e.createdAt,
+            payload: e.payload,
+          })),
+        ),
+        meta: {
+          obligationId,
+          exportedAt: pack.exportedAt,
+          state: detail.status.stateLabel,
+        },
+      };
+    }
+
+    return { format: "json" as const, ...pack };
+  }
+
+  /**
+   * P1 demo: force CVI/CCP failure so financing never reaches settlement.
+   * Does not call the finance adapter when gates fail.
+   */
+  async demoComplianceFailure(input: {
+    obligationId: Hex;
+    borrower: string;
+    protocol?: "A" | "B";
+  }) {
+    this.assertReady();
+    const protocol = input.protocol ?? "B";
+    const protocolAddress = (
+      protocol === "A" ? this.protocolAAddress : this.protocolBAddress
+    ) as Address;
+
+    const gates = await this.compliance.gateMany(
+      [
+        { address: input.borrower, role: "borrower" },
+        { address: protocolAddress, role: `protocol_${protocol}` },
+      ],
+      {
+        forceFail: true,
+        failReason: "P1_DEMO_IDENTITY_OR_COMPLIANCE_FAILURE",
+      },
+    );
+
+    try {
+      this.compliance.assertAllEligible(gates, `compliance-demo-${protocol}`);
+    } catch (err) {
+      await this.audit.record({
+        obligationId: input.obligationId,
+        eventType: "COMPLIANCE_BLOCKED",
+        outcome: "blocked",
+        reasonCode: "COMPLIANCE_BLOCKED",
+        payload: {
+          protocol,
+          gates,
+          message: "BLOCKED BEFORE FUNDS MOVED — compliance/identity gate",
+          fundsMoved: false,
+        },
+      });
+      return {
+        success: false,
+        protocol,
+        reasonCode: "COMPLIANCE_BLOCKED",
+        message: "BLOCKED BEFORE FUNDS MOVED",
+        detail:
+          "CVI/CCP gate failed before any reservation or settlement transfer.",
+        fundsMoved: false,
+        gates,
+        trustMode: this.compliance.trustMode,
+      };
+    }
+
+    // Should be unreachable when forceFail is set.
+    return { success: true, unexpected: true };
+  }
+
+  /**
+   * P1 demo: create a short-lived reservation, advance Hardhat time, expire it.
+   * Returns obligation to financeable Verified state.
+   */
+  async demoReservationExpiry(input: {
+    obligationId: Hex;
+    amount?: string;
+    ttlSeconds?: number;
+  }) {
+    this.assertReady();
+    if (this.chainId !== 31337) {
+      throw new BadRequestException({
+        message:
+          "Reservation expiry demo requires local Hardhat (evm_increaseTime).",
+        code: "EXPIRY_LOCAL_ONLY",
+      });
+    }
+
+    const wallet = this.getWallet();
+    const publicClient = this.getPublic();
+    const account = wallet.account!;
+    const amount = BigInt(input.amount ?? String(80_000n * 10n ** 6n));
+    const ttl = input.ttlSeconds ?? 5;
+    const block = await publicClient.getBlock();
+    const blockTs = Number(block.timestamp);
+    const expiry = BigInt(blockTs + ttl);
+
+    const { request: resReq } = await publicClient.simulateContract({
+      address: this.guardAddress as Address,
+      abi: lienGuardAbi,
+      functionName: "reserve",
+      args: [input.obligationId, amount, expiry],
+      account,
+    });
+    const reserveTx = await wallet.writeContract(resReq);
+    await publicClient.waitForTransactionReceipt({ hash: reserveTx });
+
+    const mid = await this.getObligation(input.obligationId);
+    await this.audit.record({
+      obligationId: input.obligationId,
+      eventType: "RESERVATION_CREATED",
+      outcome: "success",
+      payload: {
+        reserveTx,
+        reservedUntil: mid.status.reservedUntil,
+        reservationId: mid.status.activeReservationId,
+        ttlSeconds: ttl,
+      },
+    });
+
+    // Advance Hardhat time past expiry.
+    await publicClient.request({
+      method: "evm_increaseTime" as never,
+      params: [ttl + 2] as never,
+    });
+    await publicClient.request({
+      method: "evm_mine" as never,
+      params: [] as never,
+    });
+
+    const { request: expReq } = await publicClient.simulateContract({
+      address: this.guardAddress as Address,
+      abi: lienGuardAbi,
+      functionName: "expireReservation",
+      args: [input.obligationId],
+      account,
+    });
+    const expireTx = await wallet.writeContract(expReq);
+    await publicClient.waitForTransactionReceipt({ hash: expireTx });
+
+    const after = await this.getObligation(input.obligationId);
+    await this.audit.record({
+      obligationId: input.obligationId,
+      eventType: "RESERVATION_EXPIRED",
+      outcome: "success",
+      payload: {
+        expireTx,
+        stateAfter: after.status.stateLabel,
+        note: "Expired reservation returns obligation to financeable Verified state",
+      },
+    });
+
+    return {
+      success: true,
+      reserveTx,
+      expireTx,
+      beforeState: mid.status,
+      afterState: after.status,
+      message:
+        "Reservation expired safely — obligation is financeable again (Verified).",
     };
   }
 

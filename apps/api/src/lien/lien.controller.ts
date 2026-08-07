@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+} from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { Response } from "express";
 import type { Hex } from "viem";
 import { LienService } from "./lien.service";
 
@@ -42,10 +51,35 @@ export class LienController {
     return this.lien.getAudit(obligationId);
   }
 
+  @Get("obligations/:id/graph")
+  @ApiOperation({ summary: "Claim graph nodes derived from audit trail" })
+  claimGraph(@Param("id") id: string) {
+    return this.lien.getClaimGraph(id);
+  }
+
   @Get("obligations/:id/export")
-  @ApiOperation({ summary: "Evidence pack for an obligation" })
-  exportPack(@Param("id") id: string) {
-    return this.lien.exportEvidencePack(id as Hex);
+  @ApiOperation({ summary: "Evidence pack (format=json|csv)" })
+  async exportPack(
+    @Param("id") id: string,
+    @Query("format") format: string | undefined,
+    @Res() res: Response,
+  ) {
+    const fmt = format?.toLowerCase() === "csv" ? "csv" : "json";
+    const pack = await this.lien.exportEvidencePack(id as Hex, fmt);
+    if (pack.format === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${pack.filename}"`,
+      );
+      return res.send(pack.content);
+    }
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="lien-evidence-${id.slice(0, 10)}.json"`,
+    );
+    return res.json(pack);
   }
 
   @Get("obligations/:id")
@@ -129,6 +163,32 @@ export class LienController {
   })
   seedDemo() {
     return this.lien.seedDemo();
+  }
+
+  @Post("demo/compliance-fail")
+  @ApiOperation({
+    summary:
+      "P1: force CVI/CCP failure before funds move (no on-chain finance call)",
+  })
+  complianceFail(@Body() body: Record<string, unknown>) {
+    return this.lien.demoComplianceFailure({
+      obligationId: String(body.obligationId) as Hex,
+      borrower: String(body.borrower),
+      protocol: String(body.protocol ?? "B").toUpperCase() === "A" ? "A" : "B",
+    });
+  }
+
+  @Post("demo/reservation-expiry")
+  @ApiOperation({
+    summary:
+      "P1: reserve → advance Hardhat time → expire (returns to Verified)",
+  })
+  reservationExpiry(@Body() body: Record<string, unknown>) {
+    return this.lien.demoReservationExpiry({
+      obligationId: String(body.obligationId) as Hex,
+      amount: body.amount ? String(body.amount) : undefined,
+      ttlSeconds: body.ttlSeconds ? Number(body.ttlSeconds) : 5,
+    });
   }
 
   @Get("protocols/liquidity")

@@ -86,7 +86,15 @@ export class LienComplianceService {
   async gateParticipant(
     address: string,
     role: string,
+    opts?: { forceFail?: boolean; failReason?: string },
   ): Promise<ParticipantGate> {
+    if (opts?.forceFail) {
+      return this.forcedFailGate(
+        address,
+        role,
+        opts.failReason ?? "DEMO_COMPLIANCE_FAILURE",
+      );
+    }
     if (this.trustMode === "demo") {
       return this.demoGate(address, role);
     }
@@ -95,12 +103,40 @@ export class LienComplianceService {
 
   async gateMany(
     entries: Array<{ address: string; role: string }>,
+    opts?: { forceFail?: boolean; failReason?: string },
   ): Promise<ParticipantGate[]> {
     const out: ParticipantGate[] = [];
     for (const e of entries) {
-      out.push(await this.gateParticipant(e.address, e.role));
+      out.push(await this.gateParticipant(e.address, e.role, opts));
     }
     return out;
+  }
+
+  private forcedFailGate(
+    address: string,
+    role: string,
+    reason: string,
+  ): ParticipantGate {
+    const identityChecksHash = keccak256(
+      stringToHex(`force-fail|${role}|${address.toLowerCase()}|${reason}`),
+    );
+    return {
+      address,
+      role,
+      source: this.trustMode === "live" ? "cleanverse-live" : "demo-mock",
+      labeledMock: this.trustMode !== "live",
+      cvi: {
+        eligible: false,
+        queryStatus: 0,
+        verifyCode: 3,
+        message: `CVI blocked: ${reason}`,
+      },
+      ccp: {
+        allowed: false,
+        message: `CCP blocked: ${reason}`,
+      },
+      identityChecksHash,
+    };
   }
 
   aggregateIdentityHash(gates: ParticipantGate[]): Hex {

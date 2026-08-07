@@ -134,12 +134,31 @@ Race evidence: `cd apps/contracts && pnpm test`
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/lien/status` | Stack readiness |
+| GET | `/api/lien/status` | Stack readiness + trust mode |
 | POST | `/api/lien/demo/seed` | Local Hardhat seed (Acme/Atlas) |
 | POST | `/api/lien/preview-ids` | Dual-document same Obligation ID |
 | GET | `/api/lien/obligations/:id` | Passport + claim status |
+| GET | `/api/lien/obligations/:id/graph` | Claim graph nodes (P1) |
+| GET | `/api/lien/obligations/:id/export?format=json\|csv` | Evidence pack (P1) |
 | POST | `/api/lien/protocols/A\|B/finance` | Independent finance |
 | POST | `/api/lien/protocols/A\|B/repay` | Discharge |
+| POST | `/api/lien/demo/compliance-fail` | P1 compliance gate demo |
+| POST | `/api/lien/demo/reservation-expiry` | P1 reserve → expire (Hardhat) |
+| GET | `/api/lien/audit?obligationId=` | Append-only audit |
+
+### Integrator SDK
+
+```ts
+import { LienClient, buildClaimGraph } from "@repo/sdk";
+
+const lien = new LienClient({
+  publicClient,
+  registryAddress,
+  guardAddress,
+  chainId: 31337,
+});
+const status = await lien.status(obligationId);
+```
 
 ## Tests
 

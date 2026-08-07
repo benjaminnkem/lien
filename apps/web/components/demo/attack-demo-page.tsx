@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Ban,
   CheckCircle2,
+  Clock3,
   Download,
   FileText,
   Fingerprint,
@@ -16,7 +17,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  TimerReset,
   Unlock,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CopyButton } from "@/components/copy-button";
@@ -25,6 +28,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiGet, apiPost, getApiErrorMessage, API_BASE } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+type GraphNode = {
+  id: string;
+  kind: string;
+  label: string;
+  outcome: string;
+  reasonCode?: string | null;
+  at?: string;
+};
 
 type LienStatus = {
   enabled: boolean;
@@ -148,6 +160,14 @@ export function AttackDemoPage() {
   const [financeB, setFinanceB] = useState<FinanceResult | null>(null);
   const [repay, setRepay] = useState<FinanceResult | null>(null);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [graph, setGraph] = useState<GraphNode[]>([]);
+  const [complianceDemo, setComplianceDemo] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [expiryDemo, setExpiryDemo] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [busy, setBusy] = useState<string | null>(null);
 
   const refreshStack = useCallback(async () => {
@@ -161,10 +181,16 @@ export function AttackDemoPage() {
   const refreshAudit = useCallback(async (oid?: string) => {
     if (!oid) return;
     try {
-      const rows = await apiGet<AuditEvent[]>(
-        `/lien/audit?obligationId=${encodeURIComponent(oid)}`,
-      );
+      const [rows, g] = await Promise.all([
+        apiGet<AuditEvent[]>(
+          `/lien/audit?obligationId=${encodeURIComponent(oid)}`,
+        ),
+        apiGet<{ nodes: GraphNode[] }>(
+          `/lien/obligations/${oid}/graph`,
+        ).catch(() => ({ nodes: [] as GraphNode[] })),
+      ]);
       setAudit(rows);
+      setGraph(g.nodes ?? []);
     } catch {
       /* non-fatal */
     }
@@ -188,6 +214,8 @@ export function AttackDemoPage() {
       setFinanceA(null);
       setFinanceB(null);
       setRepay(null);
+      setComplianceDemo(null);
+      setExpiryDemo(null);
       await refreshAudit(res.obligationId);
       toast.success("Verified obligation seeded (CVI/CCP gates applied)");
     } catch (err) {
@@ -269,12 +297,63 @@ export function AttackDemoPage() {
     }
   };
 
-  const exportPack = () => {
+  const exportPack = (format: "json" | "csv" = "json") => {
     if (!obligationId) return;
     window.open(
-      `${API_BASE}/lien/obligations/${obligationId}/export`,
+      `${API_BASE}/lien/obligations/${obligationId}/export?format=${format}`,
       "_blank",
     );
+  };
+
+  const onComplianceFail = async () => {
+    if (!seed) return;
+    setBusy("compliance");
+    try {
+      const res = await apiPost<Record<string, unknown>, Record<string, unknown>>(
+        "/lien/demo/compliance-fail",
+        {
+          obligationId: seed.obligationId,
+          borrower: seed.demo.borrower,
+          protocol: "B",
+        },
+      );
+      setComplianceDemo(res);
+      await refreshAudit(seed.obligationId);
+      toast.message("Compliance gate blocked financing before funds moved");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onExpiryDemo = async () => {
+    if (!seed) return;
+    if (financeA?.success && !repay?.success) {
+      toast.error("Discharge first — expiry demo needs a free Verified claim");
+      return;
+    }
+    setBusy("expiry");
+    try {
+      const res = await apiPost<Record<string, unknown>, Record<string, unknown>>(
+        "/lien/demo/reservation-expiry",
+        {
+          obligationId: seed.obligationId,
+          amount: seed.demo.financeAmount,
+          ttlSeconds: 3,
+        },
+      );
+      setExpiryDemo(res);
+      if (res.afterState && typeof res.afterState === "object") {
+        setStatus(res.afterState as SeedResult["status"]);
+      }
+      await refreshAudit(seed.obligationId);
+      toast.success("Reservation expired → Verified again");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
   };
 
   const stateLabel = status?.stateLabel ?? "Unregistered";
@@ -318,10 +397,24 @@ export function AttackDemoPage() {
             Stack
           </Button>
           {obligationId && (
-            <Button variant="outline" size="sm" onClick={exportPack}>
-              <Download className="size-3.5" />
-              Evidence pack
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportPack("json")}
+              >
+                <Download className="size-3.5" />
+                Export JSON
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportPack("csv")}
+              >
+                <Download className="size-3.5" />
+                Export CSV
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -602,33 +695,131 @@ export function AttackDemoPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Asset claim graph / audit</CardTitle>
+              <CardTitle className="text-base">P1 · extra demos</CardTitle>
             </CardHeader>
-            <CardContent>
-              {audit.length === 0 ? (
+            <CardContent className="space-y-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  variant="outline"
+                  disabled={!seed || busy !== null}
+                  onClick={() => void onComplianceFail()}
+                >
+                  {busy === "compliance" ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <UserX className="size-4" />
+                  )}
+                  Compliance failure
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!seed || busy !== null}
+                  onClick={() => void onExpiryDemo()}
+                >
+                  {busy === "expiry" ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <TimerReset className="size-4" />
+                  )}
+                  Reservation expiry
+                </Button>
+              </div>
+              {complianceDemo && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                  <div className="font-bold">
+                    {(complianceDemo.message as string) ?? "COMPLIANCE_BLOCKED"}
+                  </div>
+                  <p className="mt-1 opacity-90">
+                    reason: {String(complianceDemo.reasonCode)} · fundsMoved:{" "}
+                    {String(complianceDemo.fundsMoved)} · gate fails before
+                    reserve/settlement
+                  </p>
+                </div>
+              )}
+              {expiryDemo && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Clock3 className="size-3.5" />
+                    {(expiryDemo.message as string) ?? "Reservation expired"}
+                  </div>
+                  <p className="mt-1 opacity-90">
+                    after:{" "}
+                    {String(
+                      (expiryDemo.afterState as { stateLabel?: string })
+                        ?.stateLabel ?? "—",
+                    )}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Asset claim graph</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {graph.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Audit events appear as you run the flow (append-only).
+                  Graph nodes appear from the append-only audit trail.
                 </p>
               ) : (
-                <ol className="space-y-3">
-                  {audit.map((e) => (
-                    <li
-                      key={e.id}
-                      className="border-l-2 border-border pl-3 text-sm"
-                    >
-                      <div className="font-medium">
-                        {e.eventType}{" "}
-                        <span className="text-xs font-normal text-muted-foreground">
+                <div className="flex flex-col gap-2">
+                  {graph.map((n, i) => (
+                    <div key={n.id} className="flex items-stretch gap-2">
+                      <div className="flex w-6 flex-col items-center">
+                        <span
+                          className={cn(
+                            "mt-1 size-3 rounded-full",
+                            n.kind === "finance_success" && "bg-emerald-500",
+                            n.kind === "finance_blocked" && "bg-rose-500",
+                            n.kind === "compliance_blocked" && "bg-amber-500",
+                            n.kind === "discharged" && "bg-sky-500",
+                            n.kind === "reservation_expired" && "bg-violet-500",
+                            n.kind === "obligation" && "bg-emerald-700",
+                            n.kind === "other" && "bg-muted-foreground",
+                          )}
+                        />
+                        {i < graph.length - 1 && (
+                          <span className="mt-1 w-px flex-1 bg-border" />
+                        )}
+                      </div>
+                      <div className="mb-2 flex-1 rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-sm">
+                        <div className="font-medium">{n.label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {n.outcome}
+                          {n.reasonCode ? ` · ${n.reasonCode}` : ""}
+                          {n.at
+                            ? ` · ${new Date(n.at).toLocaleTimeString()}`
+                            : ""}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {audit.length > 0 && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-muted-foreground">
+                    Raw audit ({audit.length})
+                  </summary>
+                  <ol className="mt-2 space-y-2">
+                    {audit.map((e) => (
+                      <li
+                        key={e.id}
+                        className="border-l-2 border-border pl-3 text-xs"
+                      >
+                        <span className="font-medium">{e.eventType}</span>
+                        <span className="text-muted-foreground">
+                          {" "}
                           · {e.outcome}
                           {e.reasonCode ? ` · ${e.reasonCode}` : ""}
                         </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(e.createdAt).toLocaleString()}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                      </li>
+                    ))}
+                  </ol>
+                </details>
               )}
             </CardContent>
           </Card>
