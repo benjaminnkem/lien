@@ -259,6 +259,16 @@ export function buildClaimGraph(events: AuditLike[]): ClaimGraphNode[] {
     } else if (eventType.includes("DISCHARGE")) {
       kind = "discharged";
       label = "Claim discharged";
+    } else if (eventType.includes("SUBORDINATE")) {
+      kind = "other";
+      label = eventType.includes("RELEASE")
+        ? "Subordinate claim released"
+        : "Subordinate claim registered";
+    } else if (eventType.includes("CROSS_CHAIN")) {
+      kind = "other";
+      label = eventType.includes("CONSUMED")
+        ? "Cross-chain clearance consumed"
+        : "Cross-chain clearance posted";
     }
 
     return {

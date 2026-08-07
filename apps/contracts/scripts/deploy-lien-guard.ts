@@ -37,6 +37,18 @@ async function main() {
   const protocolBAddress = await protocolB.getAddress();
   console.log("DemoFinanceB:", protocolBAddress);
 
+  const Book = await ethers.getContractFactory("PriorityClaimBook");
+  const priorityBook = await Book.deploy(guardAddress, registryAddress);
+  await priorityBook.waitForDeployment();
+  const priorityBookAddress = await priorityBook.getAddress();
+  console.log("PriorityClaimBook:", priorityBookAddress);
+
+  const X = await ethers.getContractFactory("CrossChainClearanceMock");
+  const xchain = await X.deploy();
+  await xchain.waitForDeployment();
+  const xchainAddress = await xchain.getAddress();
+  console.log("CrossChainClearanceMock:", xchainAddress);
+
   const liquidity = 1_000_000n * 10n ** 6n;
   await (await protocolA.fundLiquidity(liquidity)).wait();
   await (await protocolB.fundLiquidity(liquidity)).wait();
@@ -53,6 +65,8 @@ async function main() {
       MockSettlementToken: tokenAddress,
       DemoFinanceA: protocolAAddress,
       DemoFinanceB: protocolBAddress,
+      PriorityClaimBook: priorityBookAddress,
+      CrossChainClearanceMock: xchainAddress,
     },
   };
 

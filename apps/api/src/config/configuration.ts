@@ -64,6 +64,8 @@ export default () => ({
     protocolAAddress: process.env.LIEN_PROTOCOL_A_ADDRESS ?? '',
     protocolBAddress: process.env.LIEN_PROTOCOL_B_ADDRESS ?? '',
     tokenAddress: process.env.LIEN_TOKEN_ADDRESS ?? '',
+    priorityBookAddress: process.env.LIEN_PRIORITY_BOOK_ADDRESS ?? '',
+    crossChainMockAddress: process.env.LIEN_XCHAIN_MOCK_ADDRESS ?? '',
     atokenAddress:
       process.env.LIEN_ATOKEN_ADDRESS ?? process.env.DEMO_ATOKEN_ADDRESS ?? '',
   },

@@ -28,12 +28,21 @@ import {
   signableTerms,
   buildClaimGraph,
   auditEventsToCsv,
+  applyPrivacyFilter,
+  defaultAttestationAdapters,
+  runAttestationSuite,
+  assetClassLabel,
+  isAssetClass,
   type ObligationTerms,
+  type PrivacyLevel,
+  type AssetClass,
 } from "@repo/sdk";
 import {
+  crossChainMockAbi,
   demoFinanceAbi,
   lienGuardAbi,
   obligationRegistryAbi,
+  priorityClaimBookAbi,
   settlementTokenAbi,
 } from "./lien.abis";
 import { LienAuditService } from "./lien-audit.service";
@@ -102,6 +111,16 @@ export class LienService {
       protocolA: this.protocolAAddress || null,
       protocolB: this.protocolBAddress || null,
       settlementToken: this.tokenAddress || null,
+      priorityBook: this.priorityBookAddress || null,
+      crossChainMock: this.crossChainMockAddress || null,
+      p2: {
+        subordinateClaims: Boolean(this.priorityBookAddress),
+        crossChainMock: Boolean(this.crossChainMockAddress),
+        attestationAdapters: defaultAttestationAdapters.map((a) => ({
+          name: a.name,
+          kind: a.kind,
+        })),
+      },
     };
   }
 
@@ -170,6 +189,18 @@ export class LienService {
 
   private get tokenAddress(): Address | "" {
     return (this.config.get<string>("lien.tokenAddress") ?? "") as
+      | Address
+      | "";
+  }
+
+  private get priorityBookAddress(): Address | "" {
+    return (this.config.get<string>("lien.priorityBookAddress") ?? "") as
+      | Address
+      | "";
+  }
+
+  private get crossChainMockAddress(): Address | "" {
+    return (this.config.get<string>("lien.crossChainMockAddress") ?? "") as
       | Address
       | "";
   }
@@ -705,15 +736,20 @@ export class LienService {
   async exportEvidencePack(
     obligationId: Hex,
     format: "json" | "csv" = "json",
+    privacy: PrivacyLevel = "public",
   ) {
     const detail = await this.getObligation(obligationId);
     const events = await this.audit.forObligation(obligationId);
-    const pack = {
+    const juniors = await this.listSubordinateClaims(obligationId).catch(
+      () => [],
+    );
+    let pack: Record<string, unknown> = {
       exportedAt: new Date().toISOString(),
       trustMode: this.compliance.trustMode,
       settlementRail: this.compliance.settlementRail,
       obligation: detail.obligation,
       status: detail.status,
+      subordinateClaims: juniors,
       claimGraph: buildClaimGraph(
         events.map((e) => ({
           id: e.id,
@@ -728,6 +764,10 @@ export class LienService {
       disclaimer:
         "Protocol-level encumbrance evidence pack. Not a legal perfection certificate.",
     };
+
+    if (privacy !== "public") {
+      pack = applyPrivacyFilter(pack, privacy);
+    }
 
     if (format === "csv") {
       return {
@@ -745,7 +785,7 @@ export class LienService {
         meta: {
           obligationId,
           exportedAt: pack.exportedAt,
-          state: detail.status.stateLabel,
+          privacy,
         },
       };
     }
@@ -1136,6 +1176,344 @@ export class LienService {
       protocolB: this.protocolBAddress || null,
       liquidityA: liqA?.toString() ?? null,
       liquidityB: liqB?.toString() ?? null,
+    };
+  }
+
+  // ─── P2: subordinate claims ───────────────────────────────────────────
+
+  async listSubordinateClaims(obligationId: Hex) {
+    if (!this.priorityBookAddress) return [];
+    this.assertReady();
+    const publicClient = this.getPublic();
+    const claims = await publicClient.readContract({
+      address: this.priorityBookAddress as Address,
+      abi: priorityClaimBookAbi,
+      functionName: "getClaims",
+      args: [obligationId],
+    });
+    return claims.map((c) => ({
+      claimId: c.claimId,
+      obligationId: c.obligationId,
+      protocol: c.protocol,
+      priorityRank: Number(c.priorityRank),
+      amount: c.amount.toString(),
+      claimRef: c.claimRef,
+      label: c.label,
+      active: c.active,
+      registeredAt: Number(c.registeredAt),
+      releasedAt: Number(c.releasedAt),
+      disclaimer: "Protocol-level priority only — not legal perfection",
+    }));
+  }
+
+  async registerSubordinateClaim(input: {
+    obligationId: Hex;
+    priorityRank: number;
+    amount: string;
+    label?: string;
+    claimRef?: string;
+  }) {
+    this.assertReady();
+    if (!this.priorityBookAddress) {
+      throw new ServiceUnavailableException("PriorityClaimBook not configured");
+    }
+    if (input.priorityRank < 1 || input.priorityRank > 255) {
+      throw new BadRequestException("priorityRank must be 1–255 (0 is exclusive/senior on LienGuard)");
+    }
+    const wallet = this.getWallet();
+    const publicClient = this.getPublic();
+    const account = wallet.account!;
+    const claimRef = (input.claimRef && isHex(input.claimRef)
+      ? input.claimRef
+      : keccak256(stringToHex(`sub:${input.obligationId}:${Date.now()}`))) as Hex;
+    const label = input.label ?? `junior-rank-${input.priorityRank}`;
+    const amount = BigInt(input.amount);
+
+    const { request, result: claimId } = await publicClient.simulateContract({
+      address: this.priorityBookAddress as Address,
+      abi: priorityClaimBookAbi,
+      functionName: "registerSubordinate",
+      args: [
+        input.obligationId,
+        input.priorityRank,
+        amount,
+        claimRef,
+        label,
+      ],
+      account,
+    });
+    const txHash = await wallet.writeContract(request);
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+    const claims = await this.listSubordinateClaims(input.obligationId);
+    await this.audit.record({
+      obligationId: input.obligationId,
+      eventType: "SUBORDINATE_CLAIM_REGISTERED",
+      outcome: "success",
+      payload: {
+        txHash,
+        claimId,
+        priorityRank: input.priorityRank,
+        amount: amount.toString(),
+        label,
+        disclaimer: "Protocol-level priority only",
+      },
+    });
+    return {
+      success: true,
+      txHash,
+      claimId,
+      claims,
+      disclaimer:
+        "Subordinate claims are protocol-level disclosures only — not legally perfected liens.",
+    };
+  }
+
+  async releaseSubordinateClaim(claimId: Hex, obligationId: Hex) {
+    this.assertReady();
+    if (!this.priorityBookAddress) {
+      throw new ServiceUnavailableException("PriorityClaimBook not configured");
+    }
+    const wallet = this.getWallet();
+    const publicClient = this.getPublic();
+    const account = wallet.account!;
+    const { request } = await publicClient.simulateContract({
+      address: this.priorityBookAddress as Address,
+      abi: priorityClaimBookAbi,
+      functionName: "releaseSubordinate",
+      args: [claimId],
+      account,
+    });
+    const txHash = await wallet.writeContract(request);
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+    await this.audit.record({
+      obligationId,
+      eventType: "SUBORDINATE_CLAIM_RELEASED",
+      outcome: "success",
+      payload: { txHash, claimId },
+    });
+    return { success: true, txHash };
+  }
+
+  // ─── P2: cross-chain mock ─────────────────────────────────────────────
+
+  async postCrossChainClearance(input: {
+    obligationId: Hex;
+    targetChainId: number;
+    clearanceHash?: string;
+  }) {
+    this.assertReady();
+    if (!this.crossChainMockAddress) {
+      throw new ServiceUnavailableException(
+        "CrossChainClearanceMock not configured",
+      );
+    }
+    const wallet = this.getWallet();
+    const publicClient = this.getPublic();
+    const account = wallet.account!;
+    const clearanceHash = (input.clearanceHash && isHex(input.clearanceHash)
+      ? input.clearanceHash
+      : keccak256(
+          stringToHex(
+            `xchain:${input.obligationId}:${input.targetChainId}:${Date.now()}`,
+          ),
+        )) as Hex;
+
+    const { request, result: recordId } = await publicClient.simulateContract({
+      address: this.crossChainMockAddress as Address,
+      abi: crossChainMockAbi,
+      functionName: "postClearance",
+      args: [input.obligationId, BigInt(input.targetChainId), clearanceHash],
+      account,
+    });
+    const txHash = await wallet.writeContract(request);
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+    });
+
+    await this.audit.record({
+      obligationId: input.obligationId,
+      eventType: "CROSS_CHAIN_CLEARANCE_POSTED",
+      outcome: "success",
+      payload: {
+        txHash,
+        recordId,
+        sourceChainId: this.chainId,
+        targetChainId: input.targetChainId,
+        clearanceHash,
+        note: "Architecture mock — not a production bridge; no assets moved cross-chain",
+        blockNumber: receipt.blockNumber.toString(),
+      },
+    });
+
+    return {
+      success: true,
+      txHash,
+      recordId,
+      sourceChainId: this.chainId,
+      targetChainId: input.targetChainId,
+      clearanceHash,
+      disclaimer:
+        "Cross-chain architecture demonstration only. No bridge, no remote settlement.",
+    };
+  }
+
+  async consumeCrossChainClearance(input: {
+    recordId: Hex;
+    obligationId?: Hex;
+  }) {
+    this.assertReady();
+    if (!this.crossChainMockAddress) {
+      throw new ServiceUnavailableException(
+        "CrossChainClearanceMock not configured",
+      );
+    }
+    const wallet = this.getWallet();
+    const publicClient = this.getPublic();
+    const account = wallet.account!;
+    const { request } = await publicClient.simulateContract({
+      address: this.crossChainMockAddress as Address,
+      abi: crossChainMockAbi,
+      functionName: "consumeClearance",
+      args: [input.recordId],
+      account,
+    });
+    const txHash = await wallet.writeContract(request);
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+    const rec = await publicClient.readContract({
+      address: this.crossChainMockAddress as Address,
+      abi: crossChainMockAbi,
+      functionName: "getRecord",
+      args: [input.recordId],
+    });
+    await this.audit.record({
+      obligationId: (input.obligationId ?? rec.obligationId) as string,
+      eventType: "CROSS_CHAIN_CLEARANCE_CONSUMED",
+      outcome: "success",
+      payload: {
+        txHash,
+        recordId: input.recordId,
+        consumed: rec.consumed,
+      },
+    });
+    return {
+      success: true,
+      txHash,
+      record: {
+        recordId: rec.recordId,
+        obligationId: rec.obligationId,
+        sourceChainId: rec.sourceChainId.toString(),
+        targetChainId: rec.targetChainId.toString(),
+        clearanceHash: rec.clearanceHash,
+        active: rec.active,
+        consumed: rec.consumed,
+      },
+    };
+  }
+
+  // ─── P2: attestations + asset classes + analytics ─────────────────────
+
+  buildAttestationBundle(input: {
+    obligationId?: string;
+    supplier?: string;
+    invoiceReference?: string;
+    evidenceContent?: string;
+    assetClass?: string;
+    gates?: Array<Record<string, unknown>>;
+    crossChain?: Record<string, unknown>;
+  }) {
+    const assetClass: AssetClass = isAssetClass(input.assetClass ?? "invoice")
+      ? (input.assetClass as AssetClass)
+      : "invoice";
+
+    const evidenceAdapter = defaultAttestationAdapters.find(
+      (a) => a.kind === "evidence_root",
+    )!;
+    const supplierAdapter = defaultAttestationAdapters.find(
+      (a) => a.kind === "supplier_statement",
+    )!;
+    const assetAdapter = defaultAttestationAdapters.find(
+      (a) => a.kind === "asset_class_declaration",
+    )!;
+    const cviAdapter = defaultAttestationAdapters.find(
+      (a) => a.kind === "cleanverse_cvi",
+    )!;
+    const xAdapter = defaultAttestationAdapters.find(
+      (a) => a.kind === "cross_chain_clearance",
+    )!;
+
+    const suite: Array<{
+      adapter: (typeof defaultAttestationAdapters)[number];
+      input: Record<string, unknown>;
+    }> = [
+      {
+        adapter: evidenceAdapter,
+        input: { content: input.evidenceContent ?? "" },
+      },
+      {
+        adapter: supplierAdapter,
+        input: {
+          supplier: input.supplier ?? "",
+          invoiceReference: input.invoiceReference ?? "",
+        },
+      },
+      {
+        adapter: assetAdapter,
+        input: {
+          assetClass,
+          obligationId: input.obligationId ?? "",
+        },
+      },
+    ];
+
+    for (const g of input.gates ?? []) {
+      suite.push({
+        adapter: cviAdapter,
+        input: {
+          address: g.address,
+          role: g.role,
+          source: g.source,
+          eligible: (g.cvi as { eligible?: boolean } | undefined)?.eligible,
+          labeledMock: g.labeledMock,
+        },
+      });
+    }
+
+    if (input.crossChain) {
+      suite.push({ adapter: xAdapter, input: input.crossChain });
+    }
+
+    const attestations = runAttestationSuite(suite);
+    return {
+      assetClass,
+      assetClassLabel: assetClassLabel(assetClass),
+      attestations,
+      note: "Attestation adapters produce commitments for audit; obligor EIP-712 remains authoritative on-chain.",
+    };
+  }
+
+  async getAnalytics() {
+    const recent = await this.audit.recent(500);
+    const byType: Record<string, number> = {};
+    const byOutcome: Record<string, number> = {};
+    const byReason: Record<string, number> = {};
+    for (const e of recent) {
+      byType[e.eventType] = (byType[e.eventType] ?? 0) + 1;
+      byOutcome[e.outcome] = (byOutcome[e.outcome] ?? 0) + 1;
+      if (e.reasonCode) {
+        byReason[e.reasonCode] = (byReason[e.reasonCode] ?? 0) + 1;
+      }
+    }
+    return {
+      window: "last_500_audit_events",
+      totals: {
+        events: recent.length,
+        blocked: byOutcome.blocked ?? 0,
+        success: byOutcome.success ?? 0,
+      },
+      byType,
+      byOutcome,
+      byReason,
+      stack: this.getStatus(),
     };
   }
 }

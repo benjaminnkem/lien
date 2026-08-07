@@ -193,6 +193,102 @@ export const lienGuardAbi = [
   },
 ] as const;
 
+export const priorityClaimBookAbi = [
+  {
+    type: "function",
+    name: "registerSubordinate",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "obligationId", type: "bytes32" },
+      { name: "priorityRank", type: "uint8" },
+      { name: "amount", type: "uint256" },
+      { name: "claimRef", type: "bytes32" },
+      { name: "label", type: "string" },
+    ],
+    outputs: [{ type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "releaseSubordinate",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "claimId", type: "bytes32" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "getClaims",
+    stateMutability: "view",
+    inputs: [{ name: "obligationId", type: "bytes32" }],
+    outputs: [
+      {
+        type: "tuple[]",
+        components: [
+          { name: "claimId", type: "bytes32" },
+          { name: "obligationId", type: "bytes32" },
+          { name: "protocol", type: "address" },
+          { name: "priorityRank", type: "uint8" },
+          { name: "amount", type: "uint256" },
+          { name: "claimRef", type: "bytes32" },
+          { name: "label", type: "string" },
+          { name: "active", type: "bool" },
+          { name: "registeredAt", type: "uint64" },
+          { name: "releasedAt", type: "uint64" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "activeSubordinateCount",
+    stateMutability: "view",
+    inputs: [{ name: "obligationId", type: "bytes32" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+export const crossChainMockAbi = [
+  {
+    type: "function",
+    name: "postClearance",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "obligationId", type: "bytes32" },
+      { name: "targetChainId", type: "uint256" },
+      { name: "clearanceHash", type: "bytes32" },
+    ],
+    outputs: [{ type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "consumeClearance",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "recordId", type: "bytes32" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "getRecord",
+    stateMutability: "view",
+    inputs: [{ name: "recordId", type: "bytes32" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "recordId", type: "bytes32" },
+          { name: "obligationId", type: "bytes32" },
+          { name: "sourceChainId", type: "uint256" },
+          { name: "targetChainId", type: "uint256" },
+          { name: "clearanceHash", type: "bytes32" },
+          { name: "poster", type: "address" },
+          { name: "postedAt", type: "uint64" },
+          { name: "active", type: "bool" },
+          { name: "consumed", type: "bool" },
+        ],
+      },
+    ],
+  },
+] as const;
+
 export const demoFinanceAbi = [
   {
     type: "function",

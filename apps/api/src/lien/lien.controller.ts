@@ -10,6 +10,7 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import type { Hex } from "viem";
+import type { PrivacyLevel } from "@repo/sdk";
 import { LienService } from "./lien.service";
 
 @ApiTags("lien")
@@ -58,14 +59,26 @@ export class LienController {
   }
 
   @Get("obligations/:id/export")
-  @ApiOperation({ summary: "Evidence pack (format=json|csv)" })
+  @ApiOperation({
+    summary: "Evidence pack (format=json|csv, privacy=public|redacted|commitments_only)",
+  })
   async exportPack(
     @Param("id") id: string,
     @Query("format") format: string | undefined,
+    @Query("privacy") privacy: string | undefined,
     @Res() res: Response,
   ) {
     const fmt = format?.toLowerCase() === "csv" ? "csv" : "json";
-    const pack = await this.lien.exportEvidencePack(id as Hex, fmt);
+    const privacyLevel = (
+      ["public", "redacted", "commitments_only"].includes(privacy ?? "")
+        ? privacy
+        : "public"
+    ) as PrivacyLevel;
+    const pack = await this.lien.exportEvidencePack(
+      id as Hex,
+      fmt,
+      privacyLevel,
+    );
     if (pack.format === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
@@ -80,6 +93,42 @@ export class LienController {
       `attachment; filename="lien-evidence-${id.slice(0, 10)}.json"`,
     );
     return res.json(pack);
+  }
+
+  @Get("obligations/:id/claims")
+  @ApiOperation({ summary: "P2: list subordinate / disclosed priority claims" })
+  listClaims(@Param("id") id: string) {
+    return this.lien.listSubordinateClaims(id as Hex);
+  }
+
+  @Post("obligations/:id/claims/subordinate")
+  @ApiOperation({
+    summary:
+      "P2: register subordinate claim (rank>=1, protocol-level priority only)",
+  })
+  registerSubordinate(
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.lien.registerSubordinateClaim({
+      obligationId: id as Hex,
+      priorityRank: Number(body.priorityRank ?? 1),
+      amount: String(body.amount),
+      label: body.label ? String(body.label) : undefined,
+      claimRef: body.claimRef ? String(body.claimRef) : undefined,
+    });
+  }
+
+  @Post("claims/:claimId/release")
+  @ApiOperation({ summary: "P2: release subordinate claim" })
+  releaseClaim(
+    @Param("claimId") claimId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.lien.releaseSubordinateClaim(
+      claimId as Hex,
+      String(body.obligationId) as Hex,
+    );
   }
 
   @Get("obligations/:id")
@@ -195,5 +244,58 @@ export class LienController {
   @ApiOperation({ summary: "Protocol A/B settlement liquidity" })
   liquidity() {
     return this.lien.protocolBalances();
+  }
+
+  @Post("xchain/post")
+  @ApiOperation({
+    summary: "P2: post mock cross-chain clearance (architecture demo, not a bridge)",
+  })
+  xchainPost(@Body() body: Record<string, unknown>) {
+    return this.lien.postCrossChainClearance({
+      obligationId: String(body.obligationId) as Hex,
+      targetChainId: Number(body.targetChainId ?? 10142),
+      clearanceHash: body.clearanceHash
+        ? String(body.clearanceHash)
+        : undefined,
+    });
+  }
+
+  @Post("xchain/consume")
+  @ApiOperation({ summary: "P2: one-time consume mock remote clearance" })
+  xchainConsume(@Body() body: Record<string, unknown>) {
+    return this.lien.consumeCrossChainClearance({
+      recordId: String(body.recordId) as Hex,
+      obligationId: body.obligationId
+        ? (String(body.obligationId) as Hex)
+        : undefined,
+    });
+  }
+
+  @Post("attestations/build")
+  @ApiOperation({ summary: "P2: run attestation adapter suite (off-chain commitments)" })
+  attestations(@Body() body: Record<string, unknown>) {
+    return this.lien.buildAttestationBundle({
+      obligationId: body.obligationId ? String(body.obligationId) : undefined,
+      supplier: body.supplier ? String(body.supplier) : undefined,
+      invoiceReference: body.invoiceReference
+        ? String(body.invoiceReference)
+        : undefined,
+      evidenceContent: body.evidenceContent
+        ? String(body.evidenceContent)
+        : undefined,
+      assetClass: body.assetClass ? String(body.assetClass) : "invoice",
+      gates: Array.isArray(body.gates)
+        ? (body.gates as Array<Record<string, unknown>>)
+        : undefined,
+      crossChain: body.crossChain
+        ? (body.crossChain as Record<string, unknown>)
+        : undefined,
+    });
+  }
+
+  @Get("analytics")
+  @ApiOperation({ summary: "P2: audit analytics summary" })
+  analytics() {
+    return this.lien.getAnalytics();
   }
 }

@@ -2,53 +2,61 @@
 
 Aligned to `LIEN_Winning_Edge_PRD.md` and `LIEN_Grok_OneShot_Implementation_Prompt.md`.
 
-## P0 checklist
+## P0 — complete
 
-| Item | Status | Notes |
-| --- | --- | --- |
-| FR-01 Canonical obligation | **Done** | EIP-712 terms; evidence excluded from ID |
-| FR-02 Verified supplier | **Done** | CVI gate on register (live) / labeled demo-mock (Hardhat) |
-| FR-03 Obligor confirmation | **Done** | EIP-712 confirm |
-| FR-04 Evidence root | **Done** | Stored, queryable, not identity |
-| FR-05 Atomic reserve | **Done** | LienGuard exclusive reservation |
-| FR-06 Reservation expiry | **Done** | `expireReservation` + tests + P1 demo API |
-| FR-07 Activation consumes reservation | **Done** | one-time `consumed` |
-| FR-08 Protocol-bound one-time clearance | **Done** | `getClearance` + `ClearanceIssued` |
-| FR-09 Status + reason codes | **Done** | SDK `LIEN_REASON_*` + API |
-| FR-10 Discharge | **Done** | controller-only |
-| FR-11 Append-only audit | **Done** | `lien_audit_events` + `/lien/audit` |
-| FR-12 Two independent protocols | **Done** | DemoFinanceA / B |
-| CVI / CCP / settlement rail | **Done** | `LienComplianceService` |
-| Conflict UI | **Done** | `/demo` |
-| Tests | **Done** | Hardhat 16 passing |
-| Docs | **Done** | README, PITCH, JUDGE_QA |
+Canonical Obligation ID, obligor EIP-712, LienGuard exclusive lifecycle, dual protocols, CVI/CCP gates, audit, attack demo UI, tests (see git history).
 
-## P1 checklist
+## P1 — complete
+
+| Item | Status |
+| --- | --- |
+| Audit export JSON/CSV | Done |
+| Claim graph | Done |
+| Reservation expiry demo | Done |
+| Compliance failure demo | Done |
+| Developer SDK (`LienClient`) | Done |
+
+## P2 — complete
 
 | Item | Status | Location |
 | --- | --- | --- |
-| Audit export (JSON + CSV) | **Done** | `GET /lien/obligations/:id/export?format=json\|csv` |
-| Claim graph polish | **Done** | `GET /lien/obligations/:id/graph` + UI timeline graph |
-| Reservation expiry UI/demo | **Done** | `POST /lien/demo/reservation-expiry` + demo button |
-| Compliance failure demo | **Done** | `POST /lien/demo/compliance-fail` + demo button |
-| Developer SDK wrapper | **Done** | `@repo/sdk` `LienClient`, `buildClaimGraph`, `auditEventsToCsv` |
+| **FR-15 Subordinate / priority claims** | **Done** | `PriorityClaimBook.sol` — ranks ≥1 disclosed juniors; rank 0 exclusive stays on LienGuard; **protocol-level only** disclaimer |
+| **Cross-chain architecture mock** | **Done** | `CrossChainClearanceMock.sol` — post/consume hashed clearances; **not a bridge** |
+| **Richer attestation adapters** | **Done** | `@repo/sdk` attestation adapters + `POST /lien/attestations/build` |
+| **Extra asset classes** | **Done** | `asset-classes.ts` (invoice, warehouse_receipt, PO, equipment, private_credit) |
+| **Generalized SDK** | **Done** | LienClient + asset classes + attestation + privacy |
+| **Extra analytics** | **Done** | `GET /lien/analytics` |
+| **Advanced privacy** | **Done** | `applyPrivacyFilter` + export `?privacy=redacted\|commitments_only` |
+
+### P2 contracts
+
+- `PriorityClaimBook`
+- `CrossChainClearanceMock`
+
+### P2 API
+
+| Method | Path |
+| --- | --- |
+| GET | `/lien/obligations/:id/claims` |
+| POST | `/lien/obligations/:id/claims/subordinate` |
+| POST | `/lien/claims/:claimId/release` |
+| POST | `/lien/xchain/post` |
+| POST | `/lien/xchain/consume` |
+| POST | `/lien/attestations/build` |
+| GET | `/lien/analytics` |
+| GET | `/lien/obligations/:id/export?privacy=` |
+
+### Tests
+
+Hardhat: **20 passing** (legacy + P0 + P2).
+
+## Explicit non-claims
+
+- Subordinate claims ≠ legally perfected multi-lien structure  
+- Cross-chain mock ≠ production bridge or remote settlement  
+- Privacy filter is export redaction, not ZK  
 
 ## Product surface
 
-- Web: `/` + `/demo` only (legacy issuer/lender/compliance removed)
-- API: `/api/lien/*` + Cleanverse proxy + health
-- Contracts: ObligationRegistry, LienGuard, DemoFinanceA/B, MockSettlementToken
-
-## Trust modes
-
-| Mode | When | Behavior |
-| --- | --- | --- |
-| `demo` | Hardhat default / `LIEN_TRUST_MODE=demo` | Labeled mock CVI/CCP |
-| `live` | Public chain + Cleanverse creds | Real A-Pass + CCP; fails closed |
-
-## Out of scope (P2+)
-
-- Subordinate / multi-priority claims
-- Cross-chain architecture mock
-- DEFAULTED / DISPUTED operator workflows
-- Production bridge / marketplace / AI
+Web: `/` + `/demo` (P0/P1/P2 controls on demo page).  
+API: `/api/lien/*` + Cleanverse proxy.

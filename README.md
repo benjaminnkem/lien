@@ -145,6 +145,10 @@ Race evidence: `cd apps/contracts && pnpm test`
 | POST | `/api/lien/demo/compliance-fail` | P1 compliance gate demo |
 | POST | `/api/lien/demo/reservation-expiry` | P1 reserve → expire (Hardhat) |
 | GET | `/api/lien/audit?obligationId=` | Append-only audit |
+| POST | `/api/lien/obligations/:id/claims/subordinate` | P2 subordinate claim |
+| POST | `/api/lien/xchain/post` / `consume` | P2 cross-chain mock |
+| POST | `/api/lien/attestations/build` | P2 attestation adapters |
+| GET | `/api/lien/analytics` | P2 audit analytics |
 
 ### Integrator SDK
 

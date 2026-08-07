@@ -168,6 +168,17 @@ export function AttackDemoPage() {
   const [expiryDemo, setExpiryDemo] = useState<Record<string, unknown> | null>(
     null,
   );
+  const [subordinate, setSubordinate] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const [xchain, setXchain] = useState<Record<string, unknown> | null>(null);
+  const [attestations, setAttestations] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [analytics, setAnalytics] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [busy, setBusy] = useState<string | null>(null);
 
   const refreshStack = useCallback(async () => {
@@ -349,6 +360,108 @@ export function AttackDemoPage() {
       }
       await refreshAudit(seed.obligationId);
       toast.success("Reservation expired → Verified again");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onSubordinate = async () => {
+    if (!seed) return;
+    setBusy("subordinate");
+    try {
+      const res = await apiPost<Record<string, unknown>, Record<string, unknown>>(
+        `/lien/obligations/${seed.obligationId}/claims/subordinate`,
+        {
+          priorityRank: 1,
+          amount: "20000000000",
+          label: "disclosed-junior-mezz",
+        },
+      );
+      setSubordinate(res);
+      await refreshAudit(seed.obligationId);
+      toast.success("Subordinate claim registered (protocol-level only)");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onXchain = async () => {
+    if (!seed) return;
+    setBusy("xchain");
+    try {
+      const posted = await apiPost<
+        Record<string, unknown>,
+        Record<string, unknown>
+      >("/lien/xchain/post", {
+        obligationId: seed.obligationId,
+        targetChainId: 10142,
+      });
+      let consumed: Record<string, unknown> | null = null;
+      if (posted.recordId) {
+        consumed = await apiPost<
+          Record<string, unknown>,
+          Record<string, unknown>
+        >("/lien/xchain/consume", {
+          recordId: posted.recordId,
+          obligationId: seed.obligationId,
+        });
+      }
+      setXchain({ posted, consumed });
+      await refreshAudit(seed.obligationId);
+      toast.message("Cross-chain mock: posted + consumed (not a bridge)");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onAttestations = async () => {
+    if (!seed) return;
+    setBusy("attest");
+    try {
+      const res = await apiPost<Record<string, unknown>, Record<string, unknown>>(
+        "/lien/attestations/build",
+        {
+          obligationId: seed.obligationId,
+          supplier: seed.demo.supplier,
+          invoiceReference: seed.demo.invoiceReference,
+          evidenceContent: seed.demo.documentA,
+          assetClass: "invoice",
+          gates: seed.gates,
+          crossChain: xchain?.posted
+            ? {
+                obligationId: seed.obligationId,
+                sourceChainId: String(
+                  (xchain.posted as { sourceChainId?: number }).sourceChainId ??
+                    "",
+                ),
+                targetChainId: "10142",
+                clearanceHash: String(
+                  (xchain.posted as { clearanceHash?: string }).clearanceHash ??
+                    "",
+                ),
+              }
+            : undefined,
+        },
+      );
+      setAttestations(res);
+      toast.success("Attestation bundle built");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onAnalytics = async () => {
+    setBusy("analytics");
+    try {
+      setAnalytics(await apiGet<Record<string, unknown>>("/lien/analytics"));
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
@@ -750,6 +863,128 @@ export function AttackDemoPage() {
                     )}
                   </p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">P2 · extension demos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Subordinate claims are protocol-level only. Cross-chain mock is
+                not a bridge. Attestations are off-chain commitments.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  variant="outline"
+                  disabled={!seed || busy !== null}
+                  onClick={() => void onSubordinate()}
+                >
+                  {busy === "subordinate" ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : null}
+                  Subordinate claim
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!seed || busy !== null}
+                  onClick={() => void onXchain()}
+                >
+                  {busy === "xchain" ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : null}
+                  Cross-chain mock
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!seed || busy !== null}
+                  onClick={() => void onAttestations()}
+                >
+                  {busy === "attest" ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : null}
+                  Attestation suite
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => void onAnalytics()}
+                >
+                  {busy === "analytics" ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : null}
+                  Analytics
+                </Button>
+              </div>
+              {subordinate && (
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs text-violet-950">
+                  <strong>Subordinate registered</strong>
+                  <p className="mt-1 opacity-90">
+                    {String(subordinate.disclaimer)} · claimId{" "}
+                    {short(String(subordinate.claimId ?? ""))}
+                  </p>
+                </div>
+              )}
+              {xchain && (
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-950">
+                  <strong>Cross-chain architecture mock</strong>
+                  <p className="mt-1 opacity-90">
+                    target 10142 · record{" "}
+                    {short(
+                      String(
+                        (xchain.posted as { recordId?: string })?.recordId ??
+                          "",
+                      ),
+                    )}{" "}
+                    · consumed:{" "}
+                    {String(
+                      Boolean(
+                        (xchain.consumed as { success?: boolean })?.success,
+                      ),
+                    )}
+                  </p>
+                </div>
+              )}
+              {attestations && (
+                <div className="rounded-lg border border-border p-3 text-xs">
+                  <strong>
+                    Asset class: {String(attestations.assetClassLabel)}
+                  </strong>
+                  <p className="mt-1 text-muted-foreground">
+                    {Array.isArray(attestations.attestations)
+                      ? `${(attestations.attestations as unknown[]).length} adapter commitments`
+                      : "—"}
+                  </p>
+                </div>
+              )}
+              {analytics && (
+                <div className="rounded-lg border border-border p-3 text-xs">
+                  <strong>Analytics</strong>
+                  <pre className="mt-1 max-h-28 overflow-auto text-[10px] text-muted-foreground">
+                    {JSON.stringify(
+                      (analytics as { totals?: unknown }).totals ?? analytics,
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </div>
+              )}
+              {obligationId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() =>
+                    window.open(
+                      `${API_BASE}/lien/obligations/${obligationId}/export?format=json&privacy=redacted`,
+                      "_blank",
+                    )
+                  }
+                >
+                  Export privacy-redacted JSON
+                </Button>
               )}
             </CardContent>
           </Card>
