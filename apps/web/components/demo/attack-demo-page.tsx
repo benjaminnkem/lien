@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiGet, apiPost, getApiErrorMessage, API_BASE } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { LiveParticipantPanel } from "@/components/demo/live-participant-panel";
 
 type GraphNode = {
   id: string;
@@ -494,14 +495,15 @@ export function AttackDemoPage() {
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-emerald-900 uppercase">
             <Sparkles className="size-3.5" />
-            P0 attack demo · full control plane
+            Live wallets + operator demo
           </div>
           <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
             Obligation passport + dual-protocol attack
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Document A ≠ Document B as binaries. Same Obligation ID. Protocol A
-            finances; Protocol B is blocked on-chain before funds move.
+            Participants connect wallets on testnet for real register / sign /
+            finance txs. Operator seed tools below remain for local Hardhat
+            rehearsals.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -547,6 +549,18 @@ export function AttackDemoPage() {
           </span>
         </CardContent>
       </Card>
+
+      <LiveParticipantPanel />
+
+      <div className="border-t border-border/60 pt-6">
+        <h2 className="font-heading text-xl font-semibold tracking-tight">
+          Operator demo (API seed · local Hardhat)
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Deterministic seed with server key for rehearsals. Prefer live
+          participant mode above for real wallets on Sepolia.
+        </p>
+      </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {claimGraph.map((step, i) => (

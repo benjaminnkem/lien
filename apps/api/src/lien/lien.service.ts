@@ -1491,6 +1491,148 @@ export class LienService {
     };
   }
 
+  /**
+   * Live mode: prepare canonical terms + EIP-712 payload for wallet signing.
+   * Does not write on-chain — user wallets execute register/confirm.
+   */
+  async prepareLiveObligation(input: {
+    supplier: string;
+    obligor: string;
+    currency?: string;
+    faceValue: string;
+    dueDate: number;
+    invoiceReference: string;
+    purchaseOrderReference?: string;
+    evidenceContent: string;
+    evidenceContentB?: string;
+    jurisdiction?: string;
+    nonce?: string;
+  }) {
+    if (!isAddress(input.supplier) || !isAddress(input.obligor)) {
+      throw new BadRequestException("Invalid supplier/obligor");
+    }
+    if (!this.registryAddress) {
+      throw new ServiceUnavailableException("Registry not configured");
+    }
+    const nonce = (input.nonce && isHex(input.nonce)
+      ? input.nonce
+      : evidenceRootFromBytes(
+          `${input.invoiceReference}:${input.supplier}:${Date.now()}`,
+        )) as Hex;
+    const terms = this.buildTerms({
+      supplier: input.supplier,
+      obligor: input.obligor,
+      currency: input.currency ?? "USD",
+      faceValue: input.faceValue,
+      dueDate: input.dueDate,
+      invoiceReference: input.invoiceReference,
+      purchaseOrderReference: input.purchaseOrderReference,
+      evidenceContent: input.evidenceContent,
+      jurisdiction: input.jurisdiction,
+      nonce,
+    });
+    const domain = eip712Domain({
+      chainId: this.chainId,
+      verifyingContract: this.registryAddress as Address,
+    });
+    const message = signableTerms(terms);
+    let obligationId: Hex | null = null;
+    if (this.isReady) {
+      try {
+        obligationId = (await this.getPublic().readContract({
+          address: this.registryAddress as Address,
+          abi: obligationRegistryAbi,
+          functionName: "obligationId",
+          args: [this.toChainTerms(terms)],
+        })) as Hex;
+      } catch {
+        obligationId = null;
+      }
+    }
+    const evidenceRootB = input.evidenceContentB
+      ? evidenceRootFromBytes(input.evidenceContentB)
+      : null;
+
+    const gates = await this.compliance.gateMany([
+      { address: input.supplier, role: "supplier" },
+      { address: input.obligor, role: "obligor" },
+    ]);
+
+    return {
+      chainId: this.chainId,
+      registry: this.registryAddress,
+      trustMode: this.compliance.trustMode,
+      terms: {
+        supplier: terms.supplier,
+        obligor: terms.obligor,
+        currency: terms.currency,
+        faceValue: terms.faceValue.toString(),
+        dueDate: terms.dueDate,
+        invoiceReference: terms.invoiceReference,
+        purchaseOrderReference: terms.purchaseOrderReference,
+        evidenceRoot: terms.evidenceRoot,
+        jurisdiction: terms.jurisdiction,
+        version: terms.version.toString(),
+        nonce: terms.nonce,
+      },
+      evidenceRootB,
+      differentEvidence: evidenceRootB
+        ? terms.evidenceRoot.toLowerCase() !== evidenceRootB.toLowerCase()
+        : null,
+      predictedObligationId: obligationId,
+      eip712: {
+        domain,
+        types: OBLIGATION_EIP712_TYPES,
+        primaryType: "ObligationTerms",
+        message: {
+          ...message,
+          faceValue: message.faceValue.toString(),
+          dueDate: message.dueDate.toString(),
+          version: message.version.toString(),
+        },
+      },
+      gates,
+      identityChecksHash: this.compliance.aggregateIdentityHash(gates),
+      nextSteps: [
+        "1. Supplier wallet calls ObligationRegistry.register(terms)",
+        "2. Obligor wallet signs EIP-712 ObligationTerms (evidenceRoot excluded from type)",
+        "3. Supplier or obligor calls ObligationRegistry.confirm(terms, signature)",
+        "4. Any wallet calls DemoFinanceA.finance / DemoFinanceB.finance",
+      ],
+    };
+  }
+
+  async checkParticipantGate(address: string, role = "participant") {
+    if (!isAddress(address)) {
+      throw new BadRequestException("Invalid address");
+    }
+    const gate = await this.compliance.gateParticipant(address, role);
+    return {
+      trustMode: this.compliance.trustMode,
+      gate,
+      eligible: gate.cvi.eligible && gate.ccp.allowed,
+    };
+  }
+
+  async recordClientAudit(input: {
+    obligationId?: string;
+    eventType: string;
+    outcome: string;
+    reasonCode?: string;
+    payload?: Record<string, unknown>;
+  }) {
+    return this.audit.record({
+      obligationId: input.obligationId ?? null,
+      eventType: input.eventType,
+      outcome: input.outcome,
+      reasonCode: input.reasonCode ?? null,
+      payload: {
+        ...(input.payload ?? {}),
+        source: "client-wallet",
+      },
+    });
+  }
+
   async getAnalytics() {
     const recent = await this.audit.recent(500);
     const byType: Record<string, number> = {};

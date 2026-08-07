@@ -56,7 +56,18 @@ Hardhat: **20 passing** (legacy + P0 + P2).
 - Cross-chain mock ≠ production bridge or remote settlement  
 - Privacy filter is export redaction, not ZK  
 
+## Live participant mode (Sepolia)
+
+| Item | Status |
+| --- | --- |
+| LienGuard stack on Sepolia | Deployed (`deployments/sepolia-lienguard.json`) |
+| Wallet connect (RainbowKit / Sepolia) | Done |
+| User register / obligor EIP-712 sign / confirm | Done (`LiveParticipantPanel` + `useLienWallet`) |
+| User Protocol A/B finance + repay | Done (browser `writeContract`) |
+| Live prepare + CVI check + client audit API | Done (`/lien/live/*`) |
+| Operator Hardhat seed | Still available below live panel |
+
 ## Product surface
 
-Web: `/` + `/demo` (P0/P1/P2 controls on demo page).  
+Web: `/` + `/demo` (live wallets first, operator seed second).  
 API: `/api/lien/*` + Cleanverse proxy.

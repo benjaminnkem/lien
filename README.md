@@ -118,17 +118,27 @@ pnpm dev
 # Docs http://localhost:3001/api/docs
 ```
 
-## Judge demo (click path)
+## Live participants (Sepolia wallets)
 
-1. Open **http://localhost:3000/demo**
-2. **Seed verified obligation** — Acme Ltd → Atlas Corp, USD 100,000, obligor EIP-712 confirm  
-3. Show **Document A hash ≠ Document B hash** but **same Obligation ID**  
-4. **Protocol A finance** — reserve + fund + activate → **ENCUMBERED**  
-5. **Protocol B attempt** — **BLOCKED BEFORE FUNDS MOVED**, liquidity unchanged  
-6. **Repay & discharge** — history retained  
+1. Deploy: `cd apps/contracts && pnpm deploy:lienguard:sepolia`  
+   → `deployments/sepolia-lienguard.json`
+2. Set API `LIEN_*` addresses + `LIEN_TRUST_MODE=live` + `LIEN_RPC_URL` (Sepolia)  
+   and web `NEXT_PUBLIC_LIEN_*` (see `apps/web/.env.example`).
+3. Open **http://localhost:3000/demo** → **Live participant mode**
+4. Connect MetaMask on **Sepolia**
+5. Supplier wallet: Prepare → Register  
+6. Obligor wallet (switch account): Sign EIP-712  
+7. Supplier or obligor: Confirm on-chain  
+8. Finance Protocol A → Attack Protocol B (should fail if A succeeded)  
+9. Repay & discharge  
 
-Race evidence: `cd apps/contracts && pnpm test`  
-(“two competing reservations: only one succeeds”)
+Cleanverse CVI/CCP is enforced when `LIEN_TRUST_MODE=live` and credentials are set.
+
+## Operator demo (Hardhat seed)
+
+Still on `/demo` below the live panel: Seed → A → B → discharge for local rehearsals.
+
+Race evidence: `cd apps/contracts && pnpm test`
 
 ## API (core)
 

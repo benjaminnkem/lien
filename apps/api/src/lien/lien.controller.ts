@@ -298,4 +298,57 @@ export class LienController {
   analytics() {
     return this.lien.getAnalytics();
   }
+
+  @Post("live/prepare")
+  @ApiOperation({
+    summary:
+      "Live mode: build terms + EIP-712 typed data for wallet register/confirm (no chain write)",
+  })
+  prepareLive(@Body() body: Record<string, unknown>) {
+    return this.lien.prepareLiveObligation({
+      supplier: String(body.supplier),
+      obligor: String(body.obligor),
+      currency: body.currency ? String(body.currency) : "USD",
+      faceValue: String(body.faceValue),
+      dueDate: Number(body.dueDate),
+      invoiceReference: String(body.invoiceReference),
+      purchaseOrderReference: body.purchaseOrderReference
+        ? String(body.purchaseOrderReference)
+        : "",
+      evidenceContent: String(body.evidenceContent),
+      evidenceContentB: body.evidenceContentB
+        ? String(body.evidenceContentB)
+        : undefined,
+      jurisdiction: body.jurisdiction ? String(body.jurisdiction) : "SG",
+      nonce: body.nonce ? String(body.nonce) : undefined,
+    });
+  }
+
+  @Post("live/cvi-check")
+  @ApiOperation({ summary: "Live mode: CVI/CCP gate check for a wallet" })
+  cviCheck(@Body() body: Record<string, unknown>) {
+    return this.lien.checkParticipantGate(
+      String(body.address),
+      body.role ? String(body.role) : "participant",
+    );
+  }
+
+  @Post("live/audit")
+  @ApiOperation({
+    summary: "Live mode: append client wallet action to audit trail",
+  })
+  clientAudit(@Body() body: Record<string, unknown>) {
+    return this.lien.recordClientAudit({
+      obligationId: body.obligationId
+        ? String(body.obligationId)
+        : undefined,
+      eventType: String(body.eventType ?? "CLIENT_ACTION"),
+      outcome: String(body.outcome ?? "success"),
+      reasonCode: body.reasonCode ? String(body.reasonCode) : undefined,
+      payload:
+        body.payload && typeof body.payload === "object"
+          ? (body.payload as Record<string, unknown>)
+          : {},
+    });
+  }
 }
