@@ -28,14 +28,13 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Lien API')
     .setDescription(
-      'Pre-mint and pre-collateralization firewall for Real-World Assets. Cleanverse A-Pass (CVI) and A-Token (CVA) integration.',
+      'LIEN encumbrance control plane — canonical obligations, atomic reservation, Cleanverse CVI/CCP gates.',
     )
-    .setVersion('0.0.1')
+    .setVersion('1.0.0')
     .addTag('app', 'Service info')
     .addTag('health', 'Health checks')
-    .addTag('assets', 'Asset fingerprint, encumbrance registry, financing')
+    .addTag('lien', 'Obligation registry, LienGuard, protocol adapters')
     .addTag('cleanverse', 'Cleanverse sandbox (A-Pass / A-Token)')
-    .addTag('demo', 'One-click verified judge scenario')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

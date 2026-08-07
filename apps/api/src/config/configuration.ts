@@ -47,4 +47,24 @@ export default () => ({
     pollAttempts: parseInt(process.env.CVA_POLL_ATTEMPTS ?? '8', 10),
     pollIntervalMs: parseInt(process.env.CVA_POLL_INTERVAL_MS ?? '2500', 10),
   },
+  lien: {
+    enabled: (process.env.LIEN_ENABLED ?? 'true') !== 'false',
+    /** demo = labeled mock Cleanverse gates (local); live = real CVI/CCP */
+    trustMode: process.env.LIEN_TRUST_MODE ?? '',
+    rpcUrl:
+      process.env.LIEN_RPC_URL ??
+      process.env.CHAIN_RPC_URL ??
+      process.env.SEPOLIA_RPC_URL ??
+      'http://127.0.0.1:8545',
+    chainId: parseInt(process.env.LIEN_CHAIN_ID ?? process.env.CHAIN_ID ?? '31337', 10),
+    privateKey:
+      process.env.LIEN_PRIVATE_KEY ?? process.env.CHAIN_PRIVATE_KEY ?? '',
+    registryAddress: process.env.LIEN_REGISTRY_ADDRESS ?? '',
+    guardAddress: process.env.LIEN_GUARD_ADDRESS ?? '',
+    protocolAAddress: process.env.LIEN_PROTOCOL_A_ADDRESS ?? '',
+    protocolBAddress: process.env.LIEN_PROTOCOL_B_ADDRESS ?? '',
+    tokenAddress: process.env.LIEN_TOKEN_ADDRESS ?? '',
+    atokenAddress:
+      process.env.LIEN_ATOKEN_ADDRESS ?? process.env.DEMO_ATOKEN_ADDRESS ?? '',
+  },
 });

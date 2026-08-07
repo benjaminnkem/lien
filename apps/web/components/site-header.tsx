@@ -2,15 +2,14 @@
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { AnimatePresence, motion } from "framer-motion";
-import { Building2, FileCheck2, Landmark } from "lucide-react";
+import { Home, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const roles = [
-  { href: "/issuer", label: "Issuer", icon: Building2 },
-  { href: "/lender", label: "Lender", icon: Landmark },
-  { href: "/compliance", label: "Compliance", icon: FileCheck2 },
+  { href: "/", label: "Home", icon: Home },
+  { href: "/demo", label: "Attack demo", icon: ShieldAlert },
 ];
 
 export function SiteHeader() {
@@ -26,20 +25,23 @@ export function SiteHeader() {
           </span>
           <span className="hidden leading-tight min-[380px]:block">
             <span className="block font-heading text-[15px] font-semibold tracking-tight">
-              Lien
+              LIEN
             </span>
             <span className="block text-[10px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-              Sepolia · integrity registry
+              Encumbrance control plane
             </span>
           </span>
         </Link>
 
         <nav
-          aria-label="Demo roles"
+          aria-label="Primary"
           className="flex items-center rounded-full border border-border/75 bg-muted/55 p-1"
         >
           {roles.map((role) => {
-            const active = pathname === role.href;
+            const active =
+              role.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(role.href);
             const Icon = role.icon;
             return (
               <Link

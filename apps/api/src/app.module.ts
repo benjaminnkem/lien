@@ -7,11 +7,9 @@ import configuration from './config/configuration';
 import { validate } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { CleanverseModule } from './cleanverse/cleanverse.module';
-import { ChainModule } from './chain/chain.module';
-import { AssetsModule } from './assets/assets.module';
+import { LienModule } from './lien/lien.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DemoModule } from './demo/demo.module';
 
 @Module({
   imports: [
@@ -57,9 +55,7 @@ import { DemoModule } from './demo/demo.module';
     }),
     HealthModule,
     CleanverseModule,
-    ChainModule,
-    AssetsModule,
-    DemoModule,
+    LienModule,
   ],
   controllers: [AppController],
   providers: [AppService],

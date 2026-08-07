@@ -11,6 +11,9 @@
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:hardhat": "hardhat run scripts/deploy.ts --network hardhat",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:lienguard": "hardhat run scripts/deploy-lien-guard.ts --network hardhat",
+    "deploy:lienguard:local": "hardhat run scripts/deploy-lien-guard.ts --network localhost",
+    "deploy:lienguard:sepolia": "hardhat run scripts/deploy-lien-guard.ts --network sepolia",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
@@ -19,6 +22,7 @@
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.12",
+    "@openzeppelin/contracts": "5.2.0",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "^4.3.20",

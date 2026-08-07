@@ -1,153 +1,185 @@
-# Lien
+# LIEN
 
-**Lien** (Lien) is a pre-mint and pre-collateralization firewall for Real-World Assets (RWAs). It prevents the same real-world asset — especially invoices and receivables — from being tokenized or pledged multiple times across platforms or chains.
+> **Blockchains prevent double-spending of tokens. LIEN prevents double-spending of the real-world asset underneath them.**
 
-Built for the **Cleanverse Hackathon** with deep integration of **CVI** (identity) and **CVA** (verified assets).
+LIEN is **on-chain encumbrance infrastructure for tokenized real-world assets**. It gives a verified invoice/receivable a **canonical Obligation ID**, requires **obligor confirmation**, and lets independent financing protocols **atomically reserve** that claim so a second financing attempt fails **before funds move**.
 
-## Monorepo structure
+Built for the **Cleanverse RWA hackathon** (CVI identity + CVA asset paths).
 
+---
+
+## Problem
+
+Different tokens or lending apps can each accept a “new” document for the **same** economic obligation (same supplier, obligor, face value, due date). Token double-spend protection does not stop that.
+
+## Why document hashing is insufficient
+
+| Approach | Weakness |
+| --- | --- |
+| Hash the PDF | Margins, metadata, filename → new hash, same claim |
+| Siloed registry per app | Other protocols never see the claim |
+| Check-then-fund off-chain | Race: two funders both “see clean” |
+
+LIEN keys claims on **EIP-712 economic terms**. Evidence/document roots are stored for audit but **excluded** from the Obligation ID.
+
+## Architecture
+
+```text
+Verified Supplier + Verified Obligor  (Cleanverse CVI / A-Pass)
+              |
+              v
+     Canonical Obligation (EIP-712)
+              |
+              v
+          LienGuard
+         /    |    \
+   Protocol A  B  …   independent adapters
 ```
+
+| Contract | Role |
+| --- | --- |
+| `ObligationRegistry` | Canonical terms, obligor confirm, financeable check |
+| `LienGuard` | Reserve → Activate → Discharge (+ expiry) |
+| `DemoFinanceA` / `DemoFinanceB` | Independent finance adapters |
+| `MockSettlementToken` | Labeled demo settlement (`dUSDC`) |
+
+## State machine
+
+```text
+Verified ──reserve──► Reserved ──activate──► Encumbered ──discharge──► Discharged
+    ▲                   │
+    └──── expire ───────┘
+```
+
+Illegal transitions revert. Discharge retains claim history.
+
+## Monorepo
+
+```text
 apps/
-  web/          → Next.js frontend (App Router, Tailwind, wagmi, RainbowKit)
-  api/          → NestJS backend (TypeORM + SQLite/PostgreSQL)
-  contracts/    → Hardhat EncumbranceRegistry
+  web/        Next.js — home + attack demo (/demo) only
+  api/        NestJS — /api/lien/* + Cleanverse adapters
+  contracts/  Hardhat — LienGuard stack + tests
 packages/
-  sdk/          → Shared types, fingerprint utilities (@repo/sdk)
-  ui/           → Shared React primitives (@repo/ui)
-  typescript-config/
-  eslint-config/
+  sdk/        Obligation EIP-712 helpers (@repo/sdk)
 ```
 
-## Prerequisites
+Legacy fingerprint issuer/lender/compliance UI and `/api/assets` dual-write path have been removed.
 
-- Node.js ≥ 20
-- [pnpm](https://pnpm.io/) 9
-- Docker (for PostgreSQL)
-
-## Quick start
+## Setup
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Start PostgreSQL
-pnpm db:up
-
-# Build shared packages, then run web + api
-pnpm dev
 ```
 
-| Service  | URL                                   |
-| -------- | ------------------------------------- |
-| Web      | http://localhost:3000                 |
-| API      | http://localhost:3001/api             |
-| Health   | http://localhost:3001/api/health      |
-| Swagger  | http://localhost:3001/api/docs        |
-| Postgres | localhost:5433 (user/pass/db: `lien`) |
+### 1) Local chain + deploy LienGuard stack
 
-### Env files
+```bash
+# Terminal A
+cd apps/contracts && pnpm node
 
-Copy examples if needed:
+# Terminal B
+cd apps/contracts && pnpm deploy:lienguard:local
+# → apps/contracts/deployments/localhost-lienguard.json
+```
 
-- `apps/api/.env.example` → `apps/api/.env`
-- `apps/web/.env.example` → `apps/web/.env.local`
+### 2) API env
 
-Optional: set a real [WalletConnect Cloud](https://cloud.walletconnect.com/) project id in `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`.
+Copy `apps/api/.env.example` → `apps/api/.env` and set:
 
-### Network: Ethereum Sepolia only
+```bash
+LIEN_ENABLED=true
+LIEN_TRUST_MODE=demo          # demo = labeled CVI/CCP mocks; live = real Cleanverse
+LIEN_RPC_URL=http://127.0.0.1:8545
+LIEN_CHAIN_ID=31337
+LIEN_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+LIEN_REGISTRY_ADDRESS=0x...   # from deploy json
+LIEN_GUARD_ADDRESS=0x...
+LIEN_PROTOCOL_A_ADDRESS=0x...
+LIEN_PROTOCOL_B_ADDRESS=0x...
+LIEN_TOKEN_ADDRESS=0x...
+```
 
-Lien’s demo is **testnet-only**:
-
-| Layer | Network |
-| --- | --- |
-| Wallet / wagmi / RainbowKit | **Ethereum Sepolia** (`chainId` 11155111) |
-| Cleanverse UAT API | Sandbox (`uatapi.cleanverse.com`) |
-| Cleanverse `chain` field | **`ethereum`** (UAT maps this to Sepolia, not mainnet) |
-| EncumbranceRegistry | **Ethereum Sepolia** |
-
-Demo default settlement is Ethereum Sepolia (`DEMO_CHAIN=ethereum`). The
-registry is **global by fingerprint**: financing on one network blocks the same
-invoice on every other network (try Lender B on `DEMO_CONFLICT_CHAIN=base`).
-
-### Cleanverse + browser wallets
-
-Issuer and lender actions use the **wallet connected in the browser**
-(RainbowKit / MetaMask). There is no server-side mock wallet for the live flow.
-
-Server env only needs Cleanverse credentials and the public verification A-Token:
+Optional Cleanverse (live CVI on non-seed register paths):
 
 ```bash
 CLEANVERSE_BASE_URL=https://uatapi.cleanverse.com/api/cooperate
-CLEANVERSE_API_ID=your-api-id
-CLEANVERSE_API_KEY=your-api-key
-
-DEMO_CHAIN=ethereum
-DEMO_CONFLICT_CHAIN=base
+CLEANVERSE_API_ID=...
+CLEANVERSE_API_KEY=...
 DEMO_ATOKEN_ADDRESS=0xaC0893567D43C3E7e6e35a72803df05416C1f20D
 ```
 
-Connect an account that already holds an active Cleanverse UAT A-Pass for the
-selected network (`ethereum` = Sepolia in UAT). To run Lender A then Lender B,
-**switch MetaMask accounts** between financing attempts. API id/key never go to
-`apps/web`. Failed CVI checks return `CVI_*` codes and are audited.
+### 3) Run apps
 
-## Five-minute judge path
-
-1. Open `http://localhost:3000/issuer`. **Connect** the issuer MetaMask account
-   (A-Pass on ethereum/Sepolia), submit the invoice → **CVI verified** +
-   **Registry clean**.
-2. Click **Issue as Cleanverse CVA**. Lien calls `atoken/launch`, polls until
-   `ISSUED`, then status becomes **minted** (A-Token address + optional tx).
-3. Continue to `/lender`, connect **Lender A**, finance the **minted** asset.
-   CVI runs against the CVA A-Token; first lien is registered (+ Sepolia dual-write).
-4. Switch MetaMask to **Lender B**, pick conflict network (default `base`), retry →
-   `409 CROSS_CHAIN_REPLEDGE` (or same-network block).
-5. Open `/compliance` for the audit trail (includes `CVA_ISSUE_REQUESTED` /
-   `CVA_MINTED`) and export CSV/JSON.
-
-```text
-POST /api/assets/cva/issue
-POST /api/assets/cva/status
-GET  /api/assets/:fingerprint/cva
+```bash
+pnpm dev
+# Web  http://localhost:3000
+# API  http://localhost:3001/api
+# Docs http://localhost:3001/api/docs
 ```
 
-Relevant endpoints:
+## Judge demo (click path)
 
-```text
-POST /api/assets/fingerprint
-POST /api/assets/check
-POST /api/assets/finance
-GET  /api/assets/audit?fingerprint=...
-GET  /api/assets/audit/export?fingerprint=...&format=csv|json
-GET  /api/demo/config
-POST /api/demo/seed
+1. Open **http://localhost:3000/demo**
+2. **Seed verified obligation** — Acme Ltd → Atlas Corp, USD 100,000, obligor EIP-712 confirm  
+3. Show **Document A hash ≠ Document B hash** but **same Obligation ID**  
+4. **Protocol A finance** — reserve + fund + activate → **ENCUMBERED**  
+5. **Protocol B attempt** — **BLOCKED BEFORE FUNDS MOVED**, liquidity unchanged  
+6. **Repay & discharge** — history retained  
+
+Race evidence: `cd apps/contracts && pnpm test`  
+(“two competing reservations: only one succeeds”)
+
+## API (core)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/lien/status` | Stack readiness |
+| POST | `/api/lien/demo/seed` | Local Hardhat seed (Acme/Atlas) |
+| POST | `/api/lien/preview-ids` | Dual-document same Obligation ID |
+| GET | `/api/lien/obligations/:id` | Passport + claim status |
+| POST | `/api/lien/protocols/A\|B/finance` | Independent finance |
+| POST | `/api/lien/protocols/A\|B/repay` | Discharge |
+
+## Tests
+
+```bash
+cd apps/contracts && pnpm test
 ```
 
-## Scripts
+Invariants covered: exclusive reservation, Protocol B zero fund movement, invalid obligor sig, discharge + refinance, expired reservation, material term → new ID, same economics different evidence → same ID.
 
-| Command        | Description                       |
-| -------------- | --------------------------------- |
-| `pnpm dev`     | Dev servers for web + api (+ sdk) |
-| `pnpm build`   | Build all packages and apps       |
-| `pnpm db:up`   | Start Postgres via Docker Compose |
-| `pnpm db:down` | Stop Postgres                     |
-| `pnpm lint`            | Lint all packages                 |
-| `pnpm contracts:test`  | Hardhat unit tests                |
-| `pnpm contracts:compile` | Compile Solidity                |
+## Security (summary)
 
-## Stack
+- EIP-712 domain separation (name/version/chainId/verifyingContract)  
+- Nonce single-use on register  
+- Clearance/reservation one-shot (`consumed`)  
+- Exclusive active claim per obligation  
+- Custom errors + structured events (`FinancingConflict`)  
 
-- **Frontend:** Next.js 16, TypeScript, Tailwind CSS 4, RainbowKit, wagmi, viem, TanStack Query, Zod
-- **Backend:** NestJS 11, TypeORM, SQLite/PostgreSQL, class-validator
-- **Contracts:** Hardhat, Solidity 0.8.24 (`EncumbranceRegistry` on Ethereum Sepolia)
-- **Network:** Ethereum Sepolia only (Cleanverse UAT `chain: ethereum`)
-- **Shared:** `@repo/sdk` (fingerprint + types), Turborepo monorepo
+## Cleanverse
 
-## MVP roadmap
+| Primitive | Use |
+| --- | --- |
+| CVI / A-Pass | Participant eligibility on live registration |
+| CVA | Issuer path tokenized asset issuance (existing flow) |
 
-1. Asset fingerprint API + UI form — complete
-2. Issuer / Lender / Compliance demo — complete
-3. CVI party verification gate — complete
-4. Compliance export + verified demo seed — complete
-5. Encumbrance registry contract + API dual-write on finance — complete
-6. CVA mint lifecycle (clean → Cleanverse launch → minted → finance) — complete
+Local attack demo seed **skips** CVI (Hardhat keys only). Production paths do not fake Cleanverse success.
+
+## Limitations
+
+- Not a legally perfected global lien registry  
+- Protocol-level encumbrance for **integrated** systems  
+- `dUSDC` is a **demo settlement substitute**  
+- Cross-protocol P0; cross-chain is future extension  
+
+## Pitch materials
+
+- [`PITCH.md`](./PITCH.md) — 30s / 90s / 3min  
+- [`JUDGE_QA.md`](./JUDGE_QA.md) — 20 judge questions  
+- [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) — P0 matrix  
+- [`LIEN_Winning_Edge_PRD.md`](./LIEN_Winning_Edge_PRD.md) — source of truth  
+
+## License
+
+Private hackathon submission unless otherwise noted.

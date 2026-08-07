@@ -22,11 +22,11 @@ const mono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Lien — One asset, one first claim",
-    template: "%s · Lien",
+    default: "LIEN — Stop double-spending the real-world asset",
+    template: "%s · LIEN",
   },
   description:
-    "The pre-collateralization integrity layer for verified real-world assets.",
+    "On-chain encumbrance infrastructure for tokenized RWAs. Canonical obligation identity, atomic reservation, cross-protocol enforcement.",
 };
 
 export default function RootLayout({
