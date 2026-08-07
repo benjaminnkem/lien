@@ -245,10 +245,19 @@ export class LienComplianceService {
 
     let ccpAllowed = cviEligible;
     let ccpMessage = cviEligible
-      ? "CCP path: identity eligible"
+      ? "CCP: deferred to verified CVI (A-Pass)"
       : "CCP skipped — identity not eligible";
 
-    // CCP-style pre-transaction compliance check (Cleanverse validator).
+    /**
+     * Optional Cleanverse validator (/validator/verify).
+     * UAT often returns empty/partial payloads for general A-Token contexts.
+     * Policy:
+     * - CVI must pass (A-Pass active + verify code 4) — load-bearing
+     * - explicit valid===false → block
+     * - missing data / endpoint errors → soft-pass with note (unless LIEN_REQUIRE_CCP=true)
+     */
+    const requireCcp = Boolean(this.config.get<boolean>("lien.requireCcp"));
+
     if (cviEligible) {
       try {
         const compliance = await this.cleanverse.verifyUserCompliance({
@@ -256,21 +265,44 @@ export class LienComplianceService {
           contract_address: atoken,
           user_address: address,
         });
-        const valid = Boolean(compliance.data?.valid);
-        ccpAllowed = valid;
-        ccpMessage = valid
-          ? "CCP/compliance verify accepted"
-          : "CCP/compliance verify rejected";
+        const data = compliance?.data as
+          | { valid?: boolean; message?: string }
+          | null
+          | undefined;
+
+        if (data == null || typeof data !== "object") {
+          ccpAllowed = !requireCcp;
+          ccpMessage = requireCcp
+            ? "Validator verify returned no data (LIEN_REQUIRE_CCP=true)"
+            : "Validator verify returned no data — proceeding on verified CVI";
+          this.logger.warn(
+            `CCP empty payload for ${address}; requireCcp=${requireCcp}`,
+          );
+        } else if (data.valid === false) {
+          ccpAllowed = false;
+          ccpMessage =
+            data.message ?? "CCP/compliance verify explicitly rejected";
+        } else if (data.valid === true) {
+          ccpAllowed = true;
+          ccpMessage = "CCP/compliance verify accepted";
+        } else {
+          // valid undefined/null but envelope ok
+          ccpAllowed = !requireCcp;
+          ccpMessage = requireCcp
+            ? "Validator response missing valid flag"
+            : "Validator response incomplete — proceeding on verified CVI";
+        }
       } catch (err) {
-        // Live mode fails closed on CCP errors.
-        this.logger.warn(
-          `CCP verify failed for ${address}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-        ccpAllowed = false;
-        ccpMessage =
-          err instanceof Error ? err.message : "CCP verify failed";
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`CCP verify error for ${address}: ${msg}`);
+        if (requireCcp) {
+          ccpAllowed = false;
+          ccpMessage = msg;
+        } else {
+          // Soft-pass: A-Pass already verified; validator is optional in UAT.
+          ccpAllowed = true;
+          ccpMessage = `CCP validator unavailable (${msg}) — proceeding on verified CVI`;
+        }
       }
     }
 

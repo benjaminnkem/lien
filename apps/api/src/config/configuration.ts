@@ -51,6 +51,11 @@ export default () => ({
     enabled: (process.env.LIEN_ENABLED ?? 'true') !== 'false',
     /** demo = labeled mock Cleanverse gates (local); live = real CVI/CCP */
     trustMode: process.env.LIEN_TRUST_MODE ?? '',
+    /**
+     * When true, empty/error Cleanverse /validator/verify fails the gate.
+     * Default false: verified CVI (A-Pass) is sufficient if CCP payload is empty (common in UAT).
+     */
+    requireCcp: (process.env.LIEN_REQUIRE_CCP ?? 'false') === 'true',
     rpcUrl:
       process.env.LIEN_RPC_URL ??
       process.env.CHAIN_RPC_URL ??

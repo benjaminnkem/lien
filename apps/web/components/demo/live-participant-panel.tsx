@@ -155,11 +155,18 @@ export function LiveParticipantPanel() {
         },
         { address: string; role: string }
       >("/lien/live/cvi-check", { address, role });
+      const ccpMsg = res.gate?.ccp?.message
+        ? ` · CCP: ${res.gate.ccp.message}`
+        : "";
       setGateNote(
-        `${role}: ${res.eligible ? "eligible" : "blocked"} · ${res.trustMode} · ${res.gate.cvi.message}`,
+        `${role}: ${res.eligible ? "eligible" : "blocked"} · ${res.trustMode} · CVI: ${res.gate.cvi.message}${ccpMsg}`,
       );
       if (!res.eligible) {
-        toast.error(`${role} failed CVI/CCP gate`);
+        const why =
+          res.gate?.cvi?.eligible === false
+            ? res.gate.cvi.message
+            : (res.gate?.ccp?.message ?? "compliance gate");
+        toast.error(`${role} blocked: ${why}`);
         return false;
       }
       return true;
