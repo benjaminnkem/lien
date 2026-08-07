@@ -64,6 +64,27 @@ export class AssetEntity {
   @Column({ type: 'varchar', length: 128, nullable: true })
   cvaId!: string | null;
 
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  cvaRequestId!: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  cvaApplyStatus!: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  cvaAtokenAddress!: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  cvaSymbol!: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  cvaName!: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  cvaTxHash!: string | null;
+
+  @Column({ type: 'datetime', nullable: true })
+  cvaIssuedAt!: Date | null;
+
   @OneToMany(() => LienEntity, (lien) => lien.asset)
   liens!: LienEntity[];
 

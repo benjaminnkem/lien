@@ -36,9 +36,21 @@ export type AssetStatus =
   | "fingerprinted"
   | "clean"
   | "encumbered"
+  | "minting"
   | "minted"
   | "financed"
   | "blocked";
+
+export type CvaInfo = {
+  requestId: string | null;
+  applyStatus: string | null;
+  atokenAddress: string | null;
+  symbol: string | null;
+  name: string | null;
+  txHash: string | null;
+  issuedAt: string | null;
+  explorerUrl: string | null;
+};
 
 export type Asset = {
   id: string;
@@ -52,6 +64,7 @@ export type Asset = {
   issuerVerification: PartyVerification | null;
   issuerCviVerifiedAt: string | null;
   cvaId: string | null;
+  cva?: CvaInfo | null;
   createdAt: string;
   updatedAt: string;
   isClean: boolean;
@@ -66,7 +79,22 @@ export type FingerprintResult = {
   isClean: boolean;
   existingLienId: string | null;
   issuerVerification: PartyVerification;
+  cva?: CvaInfo | null;
   createdAt: string;
+};
+
+export type IssueCvaInput = {
+  fingerprint: string;
+  adminAddress?: string;
+};
+
+export type IssueCvaResult = {
+  fingerprint: string;
+  status: AssetStatus;
+  cva: CvaInfo;
+  alreadyIssued?: boolean;
+  pending?: boolean;
+  message?: string;
 };
 
 export type EncumbranceResult = {
@@ -147,7 +175,9 @@ export type FinanceResult = {
 export type AuditEventType =
   | "FINGERPRINT_CREATED"
   | "ENCUMBRANCE_CHECKED"
+  | "CVA_ISSUE_REQUESTED"
   | "CVA_MINTED"
+  | "CVA_ISSUE_FAILED"
   | "LIEN_REGISTERED"
   | "FINANCING_BLOCKED"
   | "CVI_VERIFIED"

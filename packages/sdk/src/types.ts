@@ -5,6 +5,7 @@ export const AssetStatusSchema = z.enum([
   "fingerprinted",
   "clean",
   "encumbered",
+  "minting",
   "minted",
   "financed",
   "blocked",
@@ -57,7 +58,9 @@ export type LienRecord = z.infer<typeof LienRecordSchema>;
 export const AuditEventTypeSchema = z.enum([
   "FINGERPRINT_CREATED",
   "ENCUMBRANCE_CHECKED",
+  "CVA_ISSUE_REQUESTED",
   "CVA_MINTED",
+  "CVA_ISSUE_FAILED",
   "LIEN_REGISTERED",
   "FINANCING_BLOCKED",
   "CVI_VERIFIED",

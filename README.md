@@ -94,15 +94,22 @@ selected network (`ethereum` = Sepolia in UAT). To run Lender A then Lender B,
 ## Five-minute judge path
 
 1. Open `http://localhost:3000/issuer`. **Connect** the issuer MetaMask account
-   (A-Pass on ethereum/Sepolia), submit the invoice, and see **CVI verified**
-   plus **Registry clean**.
-2. Continue to `/lender`, connect the **Lender A** wallet, open the invoice, and
-   finance. The API runs `query_apass` / `verify_apass` on that address, then
-   registers the global first lien (+ Sepolia dual-write when enabled).
-3. Switch MetaMask to a **different** Lender B account, select the conflict
-   network (default `base`), and retry. Registry responds `409` with
-   `CROSS_CHAIN_REPLEDGE` (or same-network duplicate block).
-4. Open `/compliance` for the audit trail and export CSV/JSON.
+   (A-Pass on ethereum/Sepolia), submit the invoice → **CVI verified** +
+   **Registry clean**.
+2. Click **Issue as Cleanverse CVA**. Lien calls `atoken/launch`, polls until
+   `ISSUED`, then status becomes **minted** (A-Token address + optional tx).
+3. Continue to `/lender`, connect **Lender A**, finance the **minted** asset.
+   CVI runs against the CVA A-Token; first lien is registered (+ Sepolia dual-write).
+4. Switch MetaMask to **Lender B**, pick conflict network (default `base`), retry →
+   `409 CROSS_CHAIN_REPLEDGE` (or same-network block).
+5. Open `/compliance` for the audit trail (includes `CVA_ISSUE_REQUESTED` /
+   `CVA_MINTED`) and export CSV/JSON.
+
+```text
+POST /api/assets/cva/issue
+POST /api/assets/cva/status
+GET  /api/assets/:fingerprint/cva
+```
 
 Relevant endpoints:
 
@@ -143,4 +150,4 @@ POST /api/demo/seed
 3. CVI party verification gate — complete
 4. Compliance export + verified demo seed — complete
 5. Encumbrance registry contract + API dual-write on finance — complete
-6. CVA mint gate and issued-asset lifecycle
+6. CVA mint lifecycle (clean → Cleanverse launch → minted → finance) — complete

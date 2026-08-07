@@ -216,12 +216,24 @@ export function LenderPage() {
       });
       return;
     }
+    if (selected.status !== "minted" && selected.status !== "financed") {
+      toast.error("CVA required before financing", {
+        description:
+          selected.status === "minting"
+            ? "CVA issuance is still pending. Wait for Cleanverse ISSUED status."
+            : "Return to Issuer and issue this receivable as a Cleanverse CVA first.",
+      });
+      return;
+    }
     const atokenAddress =
-      selected.atokenAddress ?? demoConfig.data?.atokenAddress ?? null;
+      selected.cva?.atokenAddress ??
+      selected.atokenAddress ??
+      demoConfig.data?.atokenAddress ??
+      null;
     if (!atokenAddress) {
       toast.error("A-Token required", {
         description:
-          "The asset or DEMO_ATOKEN_ADDRESS must provide a verification A-Token.",
+          "Minted CVA address missing. Re-issue CVA or set DEMO_ATOKEN_ADDRESS.",
       });
       return;
     }
@@ -614,11 +626,21 @@ export function LenderPage() {
                   {selected && (
                     <StatusBadge
                       label={
-                        selected.isClean
-                          ? "Registry clean"
-                          : "First lien active"
+                        selected.status === "financed" || !selected.isClean
+                          ? "First lien active"
+                          : selected.status === "minted"
+                            ? "CVA minted"
+                            : selected.status === "minting"
+                              ? "CVA minting"
+                              : "Registry clean"
                       }
-                      tone={selected.isClean ? "clean" : "financed"}
+                      tone={
+                        selected.status === "financed" || !selected.isClean
+                          ? "financed"
+                          : selected.status === "minted"
+                            ? "clean"
+                            : "neutral"
+                      }
                     />
                   )}
                   <span className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">

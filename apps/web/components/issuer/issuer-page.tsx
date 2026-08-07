@@ -41,10 +41,16 @@ import {
   useCheckEncumbrance,
   useCreateFingerprint,
   useDemoConfig,
+  useIssueCva,
+  useRefreshCva,
 } from "@/hooks/use-assets";
 import { useConnectedWallet } from "@/hooks/use-connected-wallet";
 import { ApiError, getApiErrorMessage } from "@/lib/api";
-import type { EncumbranceResult, FingerprintResult } from "@/lib/asset-types";
+import type {
+  EncumbranceResult,
+  FingerprintResult,
+  IssueCvaResult,
+} from "@/lib/asset-types";
 import { cn } from "@/lib/utils";
 import { useDemoStore } from "@/stores/demo-store";
 
@@ -78,12 +84,15 @@ function createInvoiceNumber() {
 export function IssuerPage() {
   const createFingerprint = useCreateFingerprint();
   const checkEncumbrance = useCheckEncumbrance();
+  const issueCva = useIssueCva();
+  const refreshCva = useRefreshCva();
   const demoConfig = useDemoConfig();
   const { address, isConnected } = useConnectedWallet();
   const [fingerprintResult, setFingerprintResult] =
     useState<FingerprintResult | null>(null);
   const [registryResult, setRegistryResult] =
     useState<EncumbranceResult | null>(null);
+  const [cvaResult, setCvaResult] = useState<IssueCvaResult | null>(null);
   const demoInvoiceNumber = useDemoStore((state) => state.invoiceNumber);
   const setAsset = useDemoStore((state) => state.setAsset);
   const markClean = useDemoStore((state) => state.markClean);
@@ -143,6 +152,7 @@ export function IssuerPage() {
 
     setFingerprintResult(null);
     setRegistryResult(null);
+    setCvaResult(null);
 
     try {
       const created = await createFingerprint.mutateAsync({
@@ -160,7 +170,7 @@ export function IssuerPage() {
         markClean();
         toast.success("Registry check passed", {
           description:
-            "This receivable is clean and ready for first financing.",
+            "Fingerprint is clean. Next: issue it as a Cleanverse CVA before financing.",
         });
       } else {
         toast.warning("Existing claim detected", {
@@ -185,6 +195,7 @@ export function IssuerPage() {
     resetDemo();
     setFingerprintResult(null);
     setRegistryResult(null);
+    setCvaResult(null);
     form.reset({
       ...form.getValues(),
       invoiceNumber: createInvoiceNumber(),
@@ -192,6 +203,57 @@ export function IssuerPage() {
     });
     toast.info("Fresh invoice ready");
   }
+
+  async function mintAsCva() {
+    if (!fingerprintResult || !registryResult?.isClean) return;
+    try {
+      const issued = await issueCva.mutateAsync({
+        fingerprint: fingerprintResult.fingerprint,
+        adminAddress: address ?? undefined,
+      });
+      setCvaResult(issued);
+      if (issued.status === "minted") {
+        toast.success("CVA minted", {
+          description: `Cleanverse issued ${issued.cva.symbol ?? "A-Token"} for this receivable.`,
+        });
+      } else if (issued.pending) {
+        toast.message("CVA issuance pending", {
+          description: "Polling Cleanverse apply status…",
+        });
+      }
+    } catch (error) {
+      toast.error("CVA issuance failed", {
+        description: getApiErrorMessage(error),
+      });
+    }
+  }
+
+  async function pollCva() {
+    if (!fingerprintResult) return;
+    try {
+      const issued = await refreshCva.mutateAsync(
+        fingerprintResult.fingerprint,
+      );
+      setCvaResult(issued);
+      if (issued.status === "minted") {
+        toast.success("CVA minted", {
+          description: issued.cva.atokenAddress ?? "A-Token issued",
+        });
+      } else {
+        toast.message("Still processing", {
+          description: issued.cva.applyStatus ?? "PENDING",
+        });
+      }
+    } catch (error) {
+      toast.error("Could not refresh CVA status", {
+        description: getApiErrorMessage(error),
+      });
+    }
+  }
+
+  const cvaMinted =
+    cvaResult?.status === "minted" ||
+    fingerprintResult?.status === "minted";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -549,6 +611,12 @@ export function IssuerPage() {
                     done: Boolean(registryResult),
                     icon: SearchCheck,
                   },
+                  {
+                    title: "Mint as CVA",
+                    body: "Cleanverse A-Token launch after clean check.",
+                    done: cvaMinted,
+                    icon: ShieldCheck,
+                  },
                 ].map((step, index, all) => {
                   const Icon = step.icon;
                   return (
@@ -612,9 +680,11 @@ export function IssuerPage() {
                           tone={registryResult.isClean ? "clean" : "blocked"}
                         />
                         <CardTitle className="mt-4 text-xl">
-                          {registryResult.isClean
-                            ? "Ready for first financing"
-                            : "Already encumbered"}
+                          {!registryResult.isClean
+                            ? "Already encumbered"
+                            : cvaMinted
+                              ? "CVA minted — ready to finance"
+                              : "Ready to mint as CVA"}
                         </CardTitle>
                       </div>
                       <span
@@ -645,7 +715,70 @@ export function IssuerPage() {
                         {fingerprintResult.fingerprint}
                       </p>
                     </div>
-                    {registryResult.isClean && (
+                    {registryResult.isClean && !cvaMinted && (
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="h-11 w-full"
+                        disabled={issueCva.isPending || refreshCva.isPending}
+                        onClick={mintAsCva}
+                        data-testid="issue-cva"
+                      >
+                        {issueCva.isPending ? (
+                          <>
+                            <LoaderCircle className="animate-spin" />
+                            Issuing CVA via Cleanverse…
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck />
+                            Issue as Cleanverse CVA
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    {cvaResult?.pending && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 w-full"
+                        disabled={refreshCva.isPending}
+                        onClick={pollCva}
+                      >
+                        {refreshCva.isPending ? (
+                          <LoaderCircle className="animate-spin" />
+                        ) : null}
+                        Refresh CVA status ({cvaResult.cva.applyStatus ?? "PENDING"})
+                      </Button>
+                    )}
+                    {cvaMinted && cvaResult && (
+                      <div className="space-y-2 rounded-xl border border-emerald-200 bg-white/70 p-3 text-xs">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-muted-foreground">Status</span>
+                          <StatusBadge label="minted" tone="clean" />
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-muted-foreground">Symbol</span>
+                          <span className="font-medium">
+                            {cvaResult.cva.symbol ?? "—"}
+                          </span>
+                        </div>
+                        <div className="break-all font-mono text-[10px] text-muted-foreground">
+                          {cvaResult.cva.atokenAddress}
+                        </div>
+                        {cvaResult.cva.explorerUrl && (
+                          <a
+                            href={cvaResult.cva.explorerUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-emerald-800 underline-offset-2 hover:underline"
+                          >
+                            View issuance tx
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {cvaMinted && (
                       <Link
                         href="/lender"
                         className={cn(
@@ -653,7 +786,7 @@ export function IssuerPage() {
                           "h-11 w-full",
                         )}
                       >
-                        Continue to Lender A
+                        Continue to Lender
                         <ArrowRight />
                       </Link>
                     )}

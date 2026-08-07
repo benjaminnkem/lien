@@ -84,13 +84,29 @@ const eventMeta: Record<
     iconClass: "bg-sky-100 text-sky-700",
     ringClass: "ring-sky-200",
   },
-  CVA_MINTED: {
-    label: "CVA issued",
+  CVA_ISSUE_REQUESTED: {
+    label: "CVA issuance requested",
     description:
-      "Cleanverse issued the verified on-chain asset representation.",
+      "Lien submitted a Cleanverse A-Token launch for this fingerprint.",
+    icon: BadgeCheck,
+    iconClass: "bg-amber-100 text-amber-800",
+    ringClass: "ring-amber-200",
+  },
+  CVA_MINTED: {
+    label: "CVA minted",
+    description:
+      "Cleanverse issued the verified on-chain asset (applyStatus ISSUED).",
     icon: BadgeCheck,
     iconClass: "bg-amber-100 text-amber-700",
     ringClass: "ring-amber-200",
+  },
+  CVA_ISSUE_FAILED: {
+    label: "CVA issuance failed",
+    description:
+      "Cleanverse rejected or failed A-Token issuance for this receivable.",
+    icon: ShieldX,
+    iconClass: "bg-rose-100 text-rose-700",
+    ringClass: "ring-rose-200",
   },
   LIEN_REGISTERED: {
     label: "First lien registered",

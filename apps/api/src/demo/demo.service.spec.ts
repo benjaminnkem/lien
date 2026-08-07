@@ -29,6 +29,10 @@ describe('DemoService', () => {
         fields: { invoiceNumber: 'INV-DEMO' },
       }),
       check: jest.fn().mockResolvedValue({ isClean: true }),
+      issueCva: jest.fn().mockResolvedValue({
+        status: 'minted',
+        cva: { atokenAddress: '0xcccccccccccccccccccccccccccccccccccccccc' },
+      }),
       finance: jest
         .fn()
         .mockResolvedValueOnce({ lien: { id: 'lien-1' } })

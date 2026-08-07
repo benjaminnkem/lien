@@ -97,12 +97,17 @@ export class DemoService {
     const registry = await this.assets.check({
       fingerprint: fingerprint.fingerprint,
     });
+    const cva = await this.assets.issueCva({
+      fingerprint: fingerprint.fingerprint,
+      adminAddress: issuerWallet,
+    });
     const firstFinance = await this.assets.finance({
       fingerprint: fingerprint.fingerprint,
       lenderCvi: lenderACvi,
       lenderWallet: lenderAWallet,
       chain: demo.chain,
-      atokenAddress: demo.atokenAddress,
+      atokenAddress:
+        cva.cva.atokenAddress ?? demo.atokenAddress,
     });
 
     let conflict: {

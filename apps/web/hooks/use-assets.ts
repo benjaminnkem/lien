@@ -12,6 +12,8 @@ import type {
   FinanceInput,
   FinanceResult,
   FingerprintResult,
+  IssueCvaInput,
+  IssueCvaResult,
 } from "@/lib/asset-types";
 
 export const assetKeys = {
@@ -78,6 +80,38 @@ export function useCheckEncumbrance() {
       await queryClient.invalidateQueries({
         queryKey: assetKeys.auditRoot(),
       });
+    },
+  });
+}
+
+export function useIssueCva() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: IssueCvaInput) =>
+      apiPost<IssueCvaResult, IssueCvaInput>("/assets/cva/issue", input),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: assetKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: assetKeys.auditRoot() }),
+      ]);
+    },
+  });
+}
+
+export function useRefreshCva() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (fingerprint: string) =>
+      apiPost<IssueCvaResult, { fingerprint: string }>("/assets/cva/status", {
+        fingerprint,
+      }),
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: assetKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: assetKeys.auditRoot() }),
+      ]);
     },
   });
 }

@@ -39,4 +39,12 @@ export default () => ({
     privateKey: process.env.CHAIN_PRIVATE_KEY ?? '',
     chainId: parseInt(process.env.CHAIN_ID ?? '11155111', 10),
   },
+  cva: {
+    adminAddress: process.env.CVA_ADMIN_ADDRESS ?? '',
+    iconUrl:
+      process.env.CVA_ICON_URL ??
+      'https://images.cleanverse.com/app/token_icon/USDC.svg',
+    pollAttempts: parseInt(process.env.CVA_POLL_ATTEMPTS ?? '8', 10),
+    pollIntervalMs: parseInt(process.env.CVA_POLL_INTERVAL_MS ?? '2500', 10),
+  },
 });

@@ -7,8 +7,12 @@ import {
   ForbiddenException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomBytes } from 'node:crypto';
 import { Repository } from 'typeorm';
+import { isAddress, isHex, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import {
   createAssetFingerprint,
   formatNetworkLabel,
@@ -25,6 +29,7 @@ import { AuditEventEntity } from './entities/audit-event.entity';
 import { CreateFingerprintDto } from './dto/create-fingerprint.dto';
 import { CheckEncumbranceDto } from './dto/check-encumbrance.dto';
 import { FinanceAssetDto } from './dto/finance-asset.dto';
+import { IssueCvaDto } from './dto/issue-cva.dto';
 import { CleanverseService } from '../cleanverse/cleanverse.service';
 import {
   CleanverseApiError,
@@ -68,6 +73,7 @@ export class AssetsService {
     private readonly audits: Repository<AuditEventEntity>,
     private readonly cleanverse: CleanverseService,
     private readonly chain: ChainService,
+    private readonly config: ConfigService,
   ) {}
 
   async createFingerprint(dto: CreateFingerprintDto) {
@@ -113,7 +119,15 @@ export class AssetsService {
     }
 
     const activeLien = await this.findActiveLien(fingerprint);
-    asset.status = activeLien ? 'financed' : 'clean';
+    if (activeLien) {
+      asset.status = 'financed';
+    } else if (
+      asset.status !== 'minting' &&
+      asset.status !== 'minted' &&
+      asset.status !== 'financed'
+    ) {
+      asset.status = 'clean';
+    }
     asset = await this.assets.save(asset);
 
     if (isNew) {
@@ -132,6 +146,7 @@ export class AssetsService {
       isClean: !activeLien,
       existingLienId: activeLien?.id ?? null,
       issuerVerification,
+      cva: this.serializeCva(asset),
       createdAt: asset.createdAt,
     };
   }
@@ -146,9 +161,13 @@ export class AssetsService {
       ? 'encumbered'
       : asset?.status === 'financed'
         ? 'financed'
-        : asset
-          ? 'clean'
-          : 'draft';
+        : asset?.status === 'minted'
+          ? 'minted'
+          : asset?.status === 'minting'
+            ? 'minting'
+            : asset
+              ? 'clean'
+              : 'draft';
 
     const settlementChain = this.resolveSettlementChain(activeLien, asset);
     const result = {
@@ -220,9 +239,32 @@ export class AssetsService {
       });
     }
 
+    if (asset.status === 'minting') {
+      throw new BadRequestException({
+        message:
+          'CVA issuance is still pending. Poll CVA status until the asset is minted.',
+        code: 'CVA_PENDING',
+        fingerprint,
+        cva: this.serializeCva(asset),
+      });
+    }
+
+    if (asset.status !== 'minted' && asset.status !== 'financed') {
+      throw new BadRequestException({
+        message:
+          'Issue this receivable as a Cleanverse CVA before financing. Registry must be clean, then mint.',
+        code: 'CVA_REQUIRED',
+        fingerprint,
+        status: asset.status,
+      });
+    }
+
     const attemptedChain =
       normalizeSettlementNetwork(dto.chain ?? asset.chain) ?? 'ethereum';
-    const atokenAddress = dto.atokenAddress ?? asset.atokenAddress;
+    const atokenAddress =
+      asset.cvaAtokenAddress ??
+      dto.atokenAddress ??
+      asset.atokenAddress;
 
     const existingEarly = await this.findActiveLien(fingerprint);
     if (existingEarly) {
@@ -442,13 +484,152 @@ export class AssetsService {
     };
   }
 
-  async getByFingerprint(fingerprint: string) {
+  async issueCva(dto: IssueCvaDto) {
+    const fingerprint = dto.fingerprint.toLowerCase();
+    const asset = await this.assets.findOne({ where: { fingerprint } });
+    if (!asset) {
+      throw new NotFoundException(`Asset not found: ${fingerprint}`);
+    }
+
+    const activeLien = await this.findActiveLien(fingerprint);
+    if (activeLien) {
+      throw new ConflictException({
+        message: 'Cannot issue CVA: fingerprint already has an active lien',
+        code: 'ALREADY_ENCUMBERED',
+        fingerprint,
+      });
+    }
+
+    if (asset.status === 'minted' && asset.cvaAtokenAddress) {
+      return {
+        fingerprint,
+        status: asset.status,
+        cva: this.serializeCva(asset),
+        alreadyIssued: true,
+      };
+    }
+
+    if (asset.status === 'minting' && asset.cvaRequestId) {
+      return this.refreshCvaStatus(fingerprint);
+    }
+
+    if (asset.status !== 'clean' && asset.status !== 'fingerprinted') {
+      throw new BadRequestException({
+        message: `Asset status ${asset.status} is not eligible for CVA issuance`,
+        code: 'CVA_NOT_ELIGIBLE',
+        status: asset.status,
+      });
+    }
+
+    const chain = normalizeSettlementNetwork(asset.chain) ?? 'ethereum';
+    const adminAddress = this.resolveCvaAdminAddress(
+      dto.adminAddress ?? asset.issuerWallet,
+    );
+    const tokenName = `Lien Invoice ${asset.invoiceNumber}`.slice(0, 64);
+    const tokenSymbol = this.buildCvaSymbol(asset);
+    const icon =
+      this.config.get<string>('cva.iconUrl') ??
+      'https://images.cleanverse.com/app/token_icon/USDC.svg';
+
+    asset.status = 'minting';
+    asset.cvaName = tokenName;
+    asset.cvaSymbol = tokenSymbol;
+    asset.cvaApplyStatus = 'SUBMITTING';
+    await this.assets.save(asset);
+
+    let requestId: string;
+    try {
+      const launched = await this.cleanverse.launchAtoken({
+        chain,
+        token_name: tokenName,
+        token_symbol: tokenSymbol,
+        decimals: 6,
+        admin_address: adminAddress,
+        rule: {
+          allowed_group: '',
+          allowed_sub_group: '',
+          min_tier: 0,
+          min_sub_tier: 0,
+          is_black_list: false,
+          countries: [],
+        },
+        icon,
+      });
+      requestId = launched.data.requestId;
+    } catch (error) {
+      asset.status = 'clean';
+      asset.cvaApplyStatus = 'SUBMIT_FAILED';
+      await this.assets.save(asset);
+      if (error instanceof CleanverseConfigError) {
+        throw new ServiceUnavailableException({
+          message: error.message,
+          code: 'CLEANVERSE_NOT_CONFIGURED',
+        });
+      }
+      const detail =
+        error instanceof CleanverseApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Cleanverse launch failed';
+      await this.audit('CVA_ISSUE_FAILED', fingerprint, asset.id, {
+        detail,
+        tokenSymbol,
+        chain,
+      });
+      throw new BadGatewayException({
+        message: `CVA launch failed: ${detail}`,
+        code: 'CVA_LAUNCH_FAILED',
+      });
+    }
+
+    asset.cvaRequestId = requestId;
+    asset.cvaId = requestId;
+    asset.cvaApplyStatus = 'PENDING';
+    await this.assets.save(asset);
+
+    await this.audit('CVA_ISSUE_REQUESTED', fingerprint, asset.id, {
+      requestId,
+      tokenName,
+      tokenSymbol,
+      chain,
+      adminAddress,
+    });
+
+    return this.pollCvaUntilTerminal(asset);
+  }
+
+  async refreshCvaStatus(fingerprint: string) {
     const normalized = fingerprint.toLowerCase();
     const asset = await this.assets.findOne({
       where: { fingerprint: normalized },
     });
     if (!asset) {
       throw new NotFoundException(`Asset not found: ${normalized}`);
+    }
+    if (!asset.cvaRequestId) {
+      throw new BadRequestException({
+        message: 'No CVA issuance request exists for this fingerprint',
+        code: 'CVA_NOT_STARTED',
+      });
+    }
+    return this.pollCvaUntilTerminal(asset, 1);
+  }
+
+  async getByFingerprint(fingerprint: string) {
+    const normalized = fingerprint.toLowerCase();
+    let asset = await this.assets.findOne({
+      where: { fingerprint: normalized },
+    });
+    if (!asset) {
+      throw new NotFoundException(`Asset not found: ${normalized}`);
+    }
+
+    if (asset.status === 'minting' && asset.cvaRequestId) {
+      await this.pollCvaUntilTerminal(asset, 1);
+      asset = (await this.assets.findOne({
+        where: { fingerprint: normalized },
+      }))!;
     }
 
     const liens = await this.liens.find({
@@ -854,8 +1035,140 @@ export class AssetsService {
       issuerVerification: asset.issuerVerification,
       issuerCviVerifiedAt: asset.issuerCviVerifiedAt,
       cvaId: asset.cvaId,
+      cva: this.serializeCva(asset),
       createdAt: asset.createdAt,
       updatedAt: asset.updatedAt,
+    };
+  }
+
+  private serializeCva(asset: AssetEntity) {
+    return {
+      requestId: asset.cvaRequestId,
+      applyStatus: asset.cvaApplyStatus,
+      atokenAddress: asset.cvaAtokenAddress,
+      symbol: asset.cvaSymbol,
+      name: asset.cvaName,
+      txHash: asset.cvaTxHash,
+      issuedAt: asset.cvaIssuedAt,
+      explorerUrl: asset.cvaTxHash
+        ? `https://sepolia.etherscan.io/tx/${asset.cvaTxHash}`
+        : null,
+    };
+  }
+
+  private resolveCvaAdminAddress(preferred?: string | null): string {
+    if (preferred && isAddress(preferred)) return preferred;
+    const configured = this.config.get<string>('cva.adminAddress') ?? '';
+    if (configured && isAddress(configured)) return configured;
+    const pk = this.config.get<string>('chain.privateKey') ?? '';
+    if (pk) {
+      const hex = (pk.startsWith('0x') ? pk : `0x${pk}`) as Hex;
+      if (isHex(hex)) return privateKeyToAccount(hex).address;
+    }
+    throw new BadRequestException({
+      message:
+        'CVA admin address required. Connect an issuer wallet or set CVA_ADMIN_ADDRESS / CHAIN_PRIVATE_KEY.',
+      code: 'CVA_ADMIN_REQUIRED',
+    });
+  }
+
+  private buildCvaSymbol(asset: AssetEntity): string {
+    const inv = asset.invoiceNumber.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const suffix = randomBytes(2).toString('hex').toUpperCase();
+    const base = (inv.slice(-6) || asset.fingerprint.slice(2, 8)).toUpperCase();
+    return `LI${base}${suffix}`.slice(0, 12);
+  }
+
+  private async pollCvaUntilTerminal(asset: AssetEntity, maxAttempts?: number) {
+    const attempts =
+      maxAttempts ??
+      this.config.get<number>('cva.pollAttempts') ??
+      8;
+    const intervalMs =
+      this.config.get<number>('cva.pollIntervalMs') ?? 2500;
+    const requestId = asset.cvaRequestId!;
+    let lastStatus = asset.cvaApplyStatus ?? 'PENDING';
+
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const response = await this.cleanverse.queryApplyStatus(requestId);
+        const data = response.data;
+        lastStatus = data.applyStatus ?? lastStatus;
+        asset.cvaApplyStatus = lastStatus;
+
+        if (lastStatus === 'ISSUED') {
+          asset.status = 'minted';
+          asset.cvaAtokenAddress =
+            data.atokenAddress ?? asset.cvaAtokenAddress;
+          asset.cvaSymbol = data.tokenSymbol ?? asset.cvaSymbol;
+          asset.cvaTxHash = data.txHash ?? asset.cvaTxHash;
+          asset.cvaId = data.requestId ?? asset.cvaId;
+          asset.cvaIssuedAt = data.issuedAt
+            ? new Date(data.issuedAt)
+            : new Date();
+          await this.assets.save(asset);
+          await this.audit('CVA_MINTED', asset.fingerprint, asset.id, {
+            requestId,
+            applyStatus: lastStatus,
+            atokenAddress: asset.cvaAtokenAddress,
+            symbol: asset.cvaSymbol,
+            txHash: asset.cvaTxHash,
+            chain: asset.chain,
+          });
+          return {
+            fingerprint: asset.fingerprint,
+            status: asset.status,
+            cva: this.serializeCva(asset),
+            alreadyIssued: false,
+          };
+        }
+
+        if (lastStatus === 'REJECTED' || lastStatus === 'ISSUE_FAILED') {
+          asset.status = 'clean';
+          await this.assets.save(asset);
+          await this.audit('CVA_ISSUE_FAILED', asset.fingerprint, asset.id, {
+            requestId,
+            applyStatus: lastStatus,
+            rejectReason: data.rejectReason ?? null,
+            issueErrorMsg: data.issueErrorMsg ?? null,
+          });
+          throw new BadGatewayException({
+            message: `CVA issuance ${lastStatus}: ${
+              data.rejectReason || data.issueErrorMsg || 'see Cleanverse status'
+            }`,
+            code: 'CVA_ISSUE_FAILED',
+            applyStatus: lastStatus,
+            requestId,
+          });
+        }
+
+        await this.assets.save(asset);
+      } catch (error) {
+        if (
+          error instanceof BadGatewayException ||
+          error instanceof BadRequestException
+        ) {
+          throw error;
+        }
+        if (i === attempts - 1) {
+          await this.assets.save(asset);
+          break;
+        }
+      }
+
+      if (i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+
+    return {
+      fingerprint: asset.fingerprint,
+      status: asset.status,
+      cva: this.serializeCva(asset),
+      alreadyIssued: false,
+      pending: true,
+      message:
+        'CVA issuance still processing. Poll GET /api/assets/:fingerprint/cva or POST status refresh.',
     };
   }
 

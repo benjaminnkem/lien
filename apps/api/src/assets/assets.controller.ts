@@ -12,6 +12,7 @@ import { AssetsService } from './assets.service';
 import { CreateFingerprintDto } from './dto/create-fingerprint.dto';
 import { CheckEncumbranceDto } from './dto/check-encumbrance.dto';
 import { FinanceAssetDto } from './dto/finance-asset.dto';
+import { IssueCvaDto } from './dto/issue-cva.dto';
 import { AuditExportQueryDto } from './dto/audit-export-query.dto';
 import type { Response } from 'express';
 
@@ -42,11 +43,54 @@ export class AssetsController {
     return this.assets.check(body);
   }
 
+  @Post('cva/issue')
+  @ApiOperation({
+    summary: 'Issue invoice as Cleanverse CVA (A-Token)',
+    description:
+      'Requires a clean fingerprint. Submits Cleanverse atoken/launch, polls until ISSUED (minted) or returns pending minting status.',
+  })
+  @ApiOkResponse({ description: 'CVA issuance submitted or completed' })
+  issueCva(@Body() body: IssueCvaDto) {
+    return this.assets.issueCva(body);
+  }
+
+  @Post('cva/status')
+  @ApiOperation({
+    summary: 'Refresh CVA issuance status from Cleanverse',
+  })
+  refreshCva(@Body() body: IssueCvaDto) {
+    return this.assets.refreshCvaStatus(body.fingerprint);
+  }
+
+  @Get(':fingerprint/cva')
+  @ApiOperation({ summary: 'Get CVA status for a fingerprint (refresh if minting)' })
+  @ApiParam({ name: 'fingerprint' })
+  async getCva(@Param('fingerprint') fingerprint: string) {
+    const asset = await this.assets.getByFingerprint(fingerprint);
+    if (!asset.cva?.requestId) {
+      return {
+        fingerprint: asset.fingerprint,
+        status: asset.status,
+        cva: asset.cva,
+        started: false,
+      };
+    }
+    if (asset.status === 'minting') {
+      return this.assets.refreshCvaStatus(fingerprint);
+    }
+    return {
+      fingerprint: asset.fingerprint,
+      status: asset.status,
+      cva: asset.cva,
+      started: true,
+    };
+  }
+
   @Post('finance')
   @ApiOperation({
     summary: 'Register first-priority lien (finance)',
     description:
-      'Finances a clean asset: registers a first-priority lien. A second attempt on the same fingerprint is blocked.',
+      'Finances a minted CVA: registers a first-priority lien. Requires status minted. A second attempt on the same fingerprint is blocked globally.',
   })
   @ApiOkResponse({ description: 'Lien registered successfully' })
   @ApiConflictResponse({

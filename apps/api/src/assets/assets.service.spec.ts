@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { createAssetFingerprint } from '@repo/sdk';
@@ -80,6 +81,8 @@ describe('AssetsService', () => {
   let cleanverse: {
     queryApass: jest.Mock;
     verifyApass: jest.Mock;
+    launchAtoken: jest.Mock;
+    queryApplyStatus: jest.Mock;
   };
   const assets = new Map<string, AssetEntity>();
   const liens = new Map<string, LienEntity>();
@@ -110,6 +113,23 @@ describe('AssetsService', () => {
           address: invoice.issuerWallet,
           code: 4,
           message: 'Valid A-Pass and transfer allowed',
+        },
+      }),
+      launchAtoken: jest.fn().mockResolvedValue({
+        code: '0000',
+        message: 'success',
+        data: { requestId: 'IA-TEST-REQUEST-1' },
+      }),
+      queryApplyStatus: jest.fn().mockResolvedValue({
+        code: '0000',
+        message: 'success',
+        data: {
+          requestId: 'IA-TEST-REQUEST-1',
+          applyStatus: 'ISSUED',
+          atokenAddress: '0xcccccccccccccccccccccccccccccccccccccccc',
+          tokenSymbol: 'LITEST',
+          txHash: '0x' + 'ab'.repeat(32),
+          issuedAt: '2026-08-06 12:00:00',
         },
       }),
     };
@@ -143,13 +163,33 @@ describe('AssetsService', () => {
             getLien: jest.fn(),
           },
         },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'cva.iconUrl')
+                return 'https://images.cleanverse.com/app/token_icon/USDC.svg';
+              if (key === 'cva.pollAttempts') return 2;
+              if (key === 'cva.pollIntervalMs') return 1;
+              if (key === 'cva.adminAddress')
+                return '0x1111111111111111111111111111111111111111';
+              return undefined;
+            }),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(AssetsService);
   });
 
-  it('fingerprints, finances once, blocks second finance', async () => {
+  async function mintCreated(fingerprint: string) {
+    const issued = await service.issueCva({ fingerprint });
+    expect(issued.status).toBe('minted');
+    return issued;
+  }
+
+  it('fingerprints, mints CVA, finances once, blocks second finance', async () => {
     const created = await service.createFingerprint(invoice);
     expect(created.fingerprint).toMatch(/^0x[a-f0-9]{64}$/);
     expect(created.isClean).toBe(true);
@@ -162,6 +202,10 @@ describe('AssetsService', () => {
     });
     expect(checkClean.isClean).toBe(true);
     expect(checkClean.scope).toBe('global');
+
+    await mintCreated(created.fingerprint);
+    expect(cleanverse.launchAtoken).toHaveBeenCalled();
+    expect(cleanverse.queryApplyStatus).toHaveBeenCalled();
 
     const financed = await service.finance({
       fingerprint: created.fingerprint,
@@ -192,6 +236,8 @@ describe('AssetsService', () => {
     const audit = await service.listAudit(created.fingerprint);
     const types = audit.map((e) => e.type);
     expect(types).toContain('FINGERPRINT_CREATED');
+    expect(types).toContain('CVA_ISSUE_REQUESTED');
+    expect(types).toContain('CVA_MINTED');
     expect(types).toContain('LIEN_REGISTERED');
     expect(types).toContain('FINANCING_BLOCKED');
     expect(types.filter((type) => type === 'CVI_VERIFIED')).toHaveLength(3);
@@ -201,8 +247,21 @@ describe('AssetsService', () => {
     expect(csv).toContain('FINANCING_BLOCKED');
   });
 
+  it('blocks finance before CVA mint', async () => {
+    const created = await service.createFingerprint(invoice);
+    await expect(
+      service.finance({
+        fingerprint: created.fingerprint,
+        lenderCvi: 'cvi:lender:bank-a',
+        lenderWallet: '0x2222222222222222222222222222222222222222',
+        chain: 'ethereum',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'CVA_REQUIRED' } });
+  });
+
   it('blocks cross-chain re-pledge of the same fingerprint', async () => {
     const created = await service.createFingerprint(invoice);
+    await mintCreated(created.fingerprint);
     await service.finance({
       fingerprint: created.fingerprint,
       lenderCvi: 'cvi:lender:bank-a',
