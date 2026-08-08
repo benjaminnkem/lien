@@ -74,6 +74,12 @@ Any integrated protocol calls the same LienGuard surface. Cross-protocol today; 
 
 > **Ethereum and Monad can stop you from spending the same token twice. Until LIEN, nothing stopped you from creating two different tokens backed by the same invoice.**
 
+## Spoken demo script
+
+Full stage script (natural language, live wallets + operator fallback, timing, recovery lines):
+
+→ [`docs/DEMO_SCRIPT.md`](./docs/DEMO_SCRIPT.md)
+
 ## Claims we do **not** make
 
 - LIEN is not a global legally perfected lien registry for every jurisdiction.

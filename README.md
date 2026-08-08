@@ -228,6 +228,7 @@ Local attack demo seed **skips** CVI (Hardhat keys only). Production paths do no
 - [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) — P0 matrix  
 - [`LIEN_Winning_Edge_PRD.md`](./LIEN_Winning_Edge_PRD.md) — source of truth  
 - [`docs/INTEGRATOR.md`](./docs/INTEGRATOR.md) — builder / integrator guide  
+- [`docs/DEMO_SCRIPT.md`](./docs/DEMO_SCRIPT.md) — spoken demo script (live + operator fallback)  
 
 ## License
 
