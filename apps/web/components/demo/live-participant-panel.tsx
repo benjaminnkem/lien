@@ -147,8 +147,8 @@ export function LiveParticipantPanel() {
         {
           eligible: boolean;
           gate: {
-            cvi: { message: string };
-            ccp: { message: string };
+            cvi: { eligible: boolean; message: string };
+            ccp: { allowed: boolean; message: string };
             source: string;
           };
           trustMode: string;
@@ -163,9 +163,9 @@ export function LiveParticipantPanel() {
       );
       if (!res.eligible) {
         const why =
-          res.gate?.cvi?.eligible === false
+          res.gate.cvi.eligible === false
             ? res.gate.cvi.message
-            : (res.gate?.ccp?.message ?? "compliance gate");
+            : (res.gate.ccp.message ?? "compliance gate");
         toast.error(`${role} blocked: ${why}`);
         return false;
       }
