@@ -18,7 +18,7 @@ No Hardhat node is required. Contracts are on **Ethereum Sepolia**.
 | --- | --- |
 | **Runtime** | Node |
 | **Root Directory** | leave empty (repo root) |
-| **Build Command** | `corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @repo/sdk build && pnpm --filter api build` |
+| **Build Command** | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @repo/sdk build && pnpm --filter api build` |
 | **Start Command** | `pnpm --filter api start:prod` |
 | **Health Check Path** | `/api/health` |
 | **Instance type** | Free or Starter |
