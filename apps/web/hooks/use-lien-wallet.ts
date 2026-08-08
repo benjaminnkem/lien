@@ -23,7 +23,7 @@ import {
   eip712Domain,
   evidenceRootFromBytes,
   signableTerms,
-} from "@repo/sdk";
+} from "lien-sdk";
 import {
   demoFinanceLiveAbi,
   obligationRegistryLiveAbi,

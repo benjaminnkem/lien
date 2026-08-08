@@ -11,7 +11,7 @@ services:
     rootDir: .
     # IMPORTANT: paste this exact Build Command in the Render dashboard if not using Blueprint.
     # NODE_ENV=production skips devDependencies; nest/typescript are production deps of api/sdk.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @repo/sdk build && pnpm --filter api build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter lien-sdk build && pnpm --filter api build
     startCommand: pnpm --filter api start:prod
     healthCheckPath: /api/health
     envVars:

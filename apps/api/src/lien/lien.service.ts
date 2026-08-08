@@ -36,7 +36,7 @@ import {
   type ObligationTerms,
   type PrivacyLevel,
   type AssetClass,
-} from "@repo/sdk";
+} from "lien-sdk";
 import {
   crossChainMockAbi,
   demoFinanceAbi,

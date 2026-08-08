@@ -6,7 +6,7 @@ Hardhat package for on-chain encumbrance.
 
 ## EncumbranceRegistry
 
-First-priority lien registry keyed by Lien **asset fingerprints** (`bytes32` keccak256 from `@repo/sdk`).
+First-priority lien registry keyed by Lien **asset fingerprints** (`bytes32` keccak256 from `lien-sdk`).
 
 | Function | Behavior |
 |----------|----------|

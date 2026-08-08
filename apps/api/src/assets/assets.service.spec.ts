@@ -2,7 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { createAssetFingerprint } from '@repo/sdk';
+import { createAssetFingerprint } from 'lien-sdk';
 import { AssetsService } from './assets.service';
 import { AssetEntity } from './entities/asset.entity';
 import { LienEntity } from './entities/lien.entity';

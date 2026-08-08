@@ -7,7 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
-import type { AuditEventType } from "@repo/sdk";
+import type { AuditEventType } from "lien-sdk";
 import { AssetEntity } from "./asset.entity";
 
 @Entity("audit_events")

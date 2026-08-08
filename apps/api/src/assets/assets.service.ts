@@ -22,7 +22,7 @@ import {
   normalizeSettlementNetwork,
   type AssetStatus,
   type InvoiceFields,
-} from '@repo/sdk';
+} from 'lien-sdk';
 import { AssetEntity } from './entities/asset.entity';
 import { LienEntity } from './entities/lien.entity';
 import { AuditEventEntity } from './entities/audit-event.entity';

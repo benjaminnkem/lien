@@ -61,8 +61,10 @@ apps/
   api/        NestJS — /api/lien/* + Cleanverse adapters
   contracts/  Hardhat — LienGuard stack + tests
 packages/
-  sdk/        Obligation EIP-712 helpers (@repo/sdk)
+  sdk/        Public npm package `lien-sdk` (EIP-712, LienClient, ABIs, deployments)
 ```
+
+**Integrator docs:** [`docs/INTEGRATOR.md`](./docs/INTEGRATOR.md) · **SDK README:** [`packages/sdk/README.md`](./packages/sdk/README.md)
 
 Legacy fingerprint issuer/lender/compliance UI and `/api/assets` dual-write path have been removed.
 
@@ -160,18 +162,31 @@ Race evidence: `cd apps/contracts && pnpm test`
 | POST | `/api/lien/attestations/build` | P2 attestation adapters |
 | GET | `/api/lien/analytics` | P2 audit analytics |
 
-### Integrator SDK
+### Integrator SDK (`lien-sdk`)
+
+```bash
+npm install lien-sdk viem
+```
 
 ```ts
-import { LienClient, buildClaimGraph } from "@repo/sdk";
+import { LienClient, SEPOLIA_DEPLOYMENT, buildClaimGraph } from "lien-sdk";
 
 const lien = new LienClient({
   publicClient,
-  registryAddress,
-  guardAddress,
-  chainId: 31337,
+  registryAddress: SEPOLIA_DEPLOYMENT.contracts.ObligationRegistry,
+  guardAddress: SEPOLIA_DEPLOYMENT.contracts.LienGuard,
+  chainId: SEPOLIA_DEPLOYMENT.chainId,
 });
 const status = await lien.status(obligationId);
+```
+
+Full guide: [`docs/INTEGRATOR.md`](./docs/INTEGRATOR.md) · package: [`packages/sdk/README.md`](./packages/sdk/README.md)
+
+Publish (maintainers):
+
+```bash
+pnpm --filter lien-sdk build
+cd packages/sdk && pnpm publish --access public --no-git-checks
 ```
 
 ## Tests
@@ -212,7 +227,9 @@ Local attack demo seed **skips** CVI (Hardhat keys only). Production paths do no
 - [`JUDGE_QA.md`](./JUDGE_QA.md) — 20 judge questions  
 - [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) — P0 matrix  
 - [`LIEN_Winning_Edge_PRD.md`](./LIEN_Winning_Edge_PRD.md) — source of truth  
+- [`docs/INTEGRATOR.md`](./docs/INTEGRATOR.md) — builder / integrator guide  
 
 ## License
 
-Private hackathon submission unless otherwise noted.
+- Monorepo demo app: private hackathon submission unless otherwise noted.  
+- **`lien-sdk`** (`packages/sdk`): MIT — see [`packages/sdk/LICENSE`](./packages/sdk/LICENSE).

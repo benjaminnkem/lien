@@ -6,7 +6,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import type { AssetStatus } from '@repo/sdk';
+import type { AssetStatus } from 'lien-sdk';
 import { LienEntity } from './lien.entity';
 import { AuditEventEntity } from './audit-event.entity';
 import type { PartyVerificationEvidence } from '../party-verification.types';

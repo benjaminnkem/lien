@@ -22,9 +22,11 @@ Canonical Obligation ID, obligor EIP-712, LienGuard exclusive lifecycle, dual pr
 | --- | --- | --- |
 | **FR-15 Subordinate / priority claims** | **Done** | `PriorityClaimBook.sol` — ranks ≥1 disclosed juniors; rank 0 exclusive stays on LienGuard; **protocol-level only** disclaimer |
 | **Cross-chain architecture mock** | **Done** | `CrossChainClearanceMock.sol` — post/consume hashed clearances; **not a bridge** |
-| **Richer attestation adapters** | **Done** | `@repo/sdk` attestation adapters + `POST /lien/attestations/build` |
+| **Richer attestation adapters** | **Done** | `lien-sdk` attestation adapters + `POST /lien/attestations/build` |
 | **Extra asset classes** | **Done** | `asset-classes.ts` (invoice, warehouse_receipt, PO, equipment, private_credit) |
 | **Generalized SDK** | **Done** | LienClient + asset classes + attestation + privacy |
+| **SDK publish prep** | **Done** | npm name `lien-sdk@0.1.0`, deployments/ABIs, MIT LICENSE, `packages/sdk/README.md` |
+| **Integrator docs** | **Done** | `docs/INTEGRATOR.md` + root README links |
 | **Extra analytics** | **Done** | `GET /lien/analytics` |
 | **Advanced privacy** | **Done** | `applyPrivacyFilter` + export `?privacy=redacted\|commitments_only` |
 

@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev --filter=web --filter=api --filter=@repo/sdk",
+    "dev": "turbo run dev --filter=web --filter=api --filter=lien-sdk",
     "dev:web": "turbo run dev --filter=web",
     "dev:api": "turbo run dev --filter=api",
     "lint": "turbo run lint",
@@ -13,7 +13,9 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "contracts:compile": "pnpm --filter contracts compile",
-    "contracts:test": "pnpm --filter contracts test"
+    "contracts:test": "pnpm --filter contracts test",
+    "sdk:build": "pnpm --filter lien-sdk build",
+    "sdk:pack": "pnpm --filter lien-sdk pack"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

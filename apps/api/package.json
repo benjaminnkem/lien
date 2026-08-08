@@ -30,7 +30,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.4.6",
     "@nestjs/typeorm": "^11.0.3",
-    "@repo/sdk": "workspace:*",
+    "lien-sdk": "workspace:*",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.7",
     "axios": "^1.19.0",

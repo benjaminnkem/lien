@@ -1,29 +1,70 @@
 {
-  "name": "@repo/sdk",
-  "version": "0.0.0",
-  "private": true,
+  "name": "lien-sdk",
+  "version": "0.1.0",
+  "description": "LIEN protocol SDK — canonical obligation identity, EIP-712 helpers, LienClient, ABIs, and Sepolia deployments for RWA encumbrance infrastructure.",
+  "license": "MIT",
+  "author": "LIEN",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benjaminnkem/lien.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/benjaminnkem/lien/tree/main/packages/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/benjaminnkem/lien/issues"
+  },
+  "keywords": [
+    "lien",
+    "rwa",
+    "encumbrance",
+    "ethereum",
+    "sepolia",
+    "viem",
+    "eip-712",
+    "defi",
+    "invoice-finance"
+  ],
+  "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
       "default": "./dist/index.js"
     }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "check-types": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "prepublishOnly": "pnpm run build",
+    "publish:npm": "pnpm publish --access public --no-git-checks"
+  },
+  "peerDependencies": {
+    "viem": "^2.21.0"
   },
   "dependencies": {
-    "typescript": "~5.7.3",
-    "viem": "^2.55.10",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3"
+    "@types/node": "^22.15.3",
+    "typescript": "~5.7.3",
+    "viem": "^2.55.10"
   }
 }

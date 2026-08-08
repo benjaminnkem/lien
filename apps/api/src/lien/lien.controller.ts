@@ -10,7 +10,7 @@ import {
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import type { Hex } from "viem";
-import type { PrivacyLevel } from "@repo/sdk";
+import type { PrivacyLevel } from "lien-sdk";
 import { LienService } from "./lien.service";
 
 @ApiTags("lien")
