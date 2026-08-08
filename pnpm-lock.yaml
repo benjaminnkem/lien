@@ -44,6 +44,12 @@ importers:
       '@repo/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.10.7
+        version: 22.15.3
       axios:
         specifier: ^1.19.0
         version: 1.19.0
@@ -56,6 +62,9 @@ importers:
       class-validator:
         specifier: ^0.14.2
         version: 0.14.4
+      express:
+        specifier: ^5.0.1
+        version: 5.2.1
       pg:
         specifier: ^8.16.3
         version: 8.22.0
@@ -90,15 +99,9 @@ importers:
       '@types/better-sqlite3':
         specifier: ^9.6.0
         version: 9.6.0
-      '@types/express':
-        specifier: ^5.0.0
-        version: 5.0.6
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
-      '@types/node':
-        specifier: ^22.10.7
-        version: 22.15.3
       '@types/supertest':
         specifier: ^6.0.2
         version: 6.0.3
