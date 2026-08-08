@@ -7,7 +7,7 @@
     "sourceMap": true,
     "lib": ["ES2022"],
     "module": "CommonJS",
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
     "target": "ES2022",
     "strict": true,
     "esModuleInterop": true,

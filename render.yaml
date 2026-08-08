@@ -1,0 +1,74 @@
+# Render Blueprint — LIEN API (monorepo)
+# Dashboard: New → Blueprint → connect this repo
+# Or create a Web Service manually with the settings below.
+
+services:
+  - type: web
+    name: lien-api
+    runtime: node
+    plan: free # or starter
+    region: oregon
+    rootDir: .
+    # Install all deps (incl. typescript/nest CLI). Render sets NODE_ENV=production
+    # which would otherwise skip devDependencies and break the build.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm --filter @repo/sdk build && pnpm --filter api build
+    startCommand: pnpm --filter api start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: CORS_ORIGIN
+        sync: false # set to your Vercel URL, e.g. https://lien-xxx.vercel.app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lien-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "true"
+      - key: DATABASE_SYNC
+        value: "true"
+      - key: LIEN_ENABLED
+        value: "true"
+      - key: LIEN_TRUST_MODE
+        value: live
+      - key: LIEN_REQUIRE_CCP
+        value: "false"
+      - key: LIEN_CHAIN_ID
+        value: "11155111"
+      - key: LIEN_RPC_URL
+        sync: false # Sepolia RPC (Alchemy/Infura)
+      - key: LIEN_REGISTRY_ADDRESS
+        value: "0xD7cB2f67434eFfa6e78eaed221C71E9Bd5500f9C"
+      - key: LIEN_GUARD_ADDRESS
+        value: "0x70451CFb4182537CeC9781910C5538e8EFCEFdF7"
+      - key: LIEN_PROTOCOL_A_ADDRESS
+        value: "0xDffB1Ba961a1e13c5D4955DdA2FeC6C93dbAbCcF"
+      - key: LIEN_PROTOCOL_B_ADDRESS
+        value: "0xaFBC2BB2396A66720Bea47933e2a38E01e34da70"
+      - key: LIEN_TOKEN_ADDRESS
+        value: "0x79037a0722985B2E2Cf66ADba9ebf6937d67123C"
+      - key: LIEN_PRIORITY_BOOK_ADDRESS
+        value: "0xf94295CD7CcF71A40b17511cA489374c61A02973"
+      - key: LIEN_XCHAIN_MOCK_ADDRESS
+        value: "0xd460cF41d4EB8EA8e1529Ed9785926dD9e7c8CD1"
+      - key: DEMO_CHAIN
+        value: ethereum
+      - key: DEMO_ATOKEN_ADDRESS
+        value: "0xaC0893567D43C3E7e6e35a72803df05416C1f20D"
+      - key: CLEANVERSE_BASE_URL
+        value: https://uatapi.cleanverse.com/api/cooperate
+      - key: CLEANVERSE_API_ID
+        sync: false
+      - key: CLEANVERSE_API_KEY
+        sync: false
+      # Optional: only for server-side operator helpers (not needed for wallet live flow)
+      - key: LIEN_PRIVATE_KEY
+        sync: false
+
+databases:
+  - name: lien-db
+    plan: free # Postgres free tier; audit/events persistence
+    databaseName: lien
+    user: lien
