@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import {
-  isAddress,
-  type Address,
-  type Hex,
-} from "viem";
+import { isAddress, type Address, type Hex } from "viem";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -295,12 +291,7 @@ export function LiveParticipantPanel() {
       setLastTx(hash);
       const oid = obligationId ?? (await lien.computeObligationId(terms));
       setObligationId(oid);
-      await recordAudit(
-        "CLIENT_CONFIRM",
-        "success",
-        { txHash: hash },
-        oid,
-      );
+      await recordAudit("CLIENT_CONFIRM", "success", { txHash: hash }, oid);
       await refreshStatus(oid);
       toast.success("Obligor confirmed — obligation financeable");
     } catch (e) {
@@ -350,9 +341,7 @@ export function LiveParticipantPanel() {
         obligationId ?? undefined,
       );
       toast.error(
-        protocol === "B"
-          ? `Protocol B blocked / failed: ${msg}`
-          : msg,
+        protocol === "B" ? `Protocol B blocked / failed: ${msg}` : msg,
       );
       if (obligationId) await refreshStatus(obligationId);
     } finally {
@@ -437,8 +426,8 @@ export function LiveParticipantPanel() {
     lien.chainId !== stack.chainId;
 
   return (
-    <Card className="border-emerald-200/80 shadow-sm">
-      <CardHeader className="border-b bg-gradient-to-r from-emerald-950 to-emerald-900 text-white">
+    <Card className="gap-0 overflow-hidden border-emerald-200/80 py-0 shadow-sm">
+      <CardHeader className="rounded-none border-b bg-gradient-to-r from-emerald-950 to-emerald-900 py-6 text-white">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold tracking-[0.14em] text-emerald-200/90 uppercase">
@@ -454,6 +443,7 @@ export function LiveParticipantPanel() {
               <code className="text-emerald-200">LIEN_TRUST_MODE=live</code>.
             </p>
           </div>
+
           <ConnectButton
             chainStatus="icon"
             accountStatus="address"
@@ -461,10 +451,12 @@ export function LiveParticipantPanel() {
           />
         </div>
       </CardHeader>
-      <CardContent className="space-y-5 pt-6">
+      <CardContent className="space-y-5 py-6">
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant={lien.ready || stack?.ready ? "default" : "secondary"}>
-            {lien.ready || stack?.ready ? "Contracts configured" : "Missing addresses"}
+            {lien.ready || stack?.ready
+              ? "Contracts configured"
+              : "Missing addresses"}
           </Badge>
           <Badge variant="outline">
             API chain {stack?.chainId ?? "—"} · trust {stack?.trustMode ?? "—"}
@@ -475,7 +467,8 @@ export function LiveParticipantPanel() {
           {status && (
             <Badge
               className={cn(
-                status.stateLabel === "Encumbered" && "bg-amber-100 text-amber-900",
+                status.stateLabel === "Encumbered" &&
+                  "bg-amber-100 text-amber-900",
               )}
               variant="outline"
             >
@@ -585,10 +578,7 @@ export function LiveParticipantPanel() {
           {lastTx && stack && (
             <a
               className="mt-2 inline-flex items-center gap-1 text-emerald-800 underline"
-              href={txUrl(
-                lien.config.explorerBase,
-                lastTx,
-              )}
+              href={txUrl(lien.config.explorerBase, lastTx)}
               target="_blank"
               rel="noreferrer"
             >
@@ -692,11 +682,11 @@ export function LiveParticipantPanel() {
         </div>
 
         <div className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-          <strong className="text-foreground">Multi-wallet tip:</strong> Use
-          two browser profiles (or switch accounts). Profile 1 = supplier
-          (prepare + register + confirm). Profile 2 = obligor (sign only). Any
-          profile can call Finance A then B. Protocol B should revert if A
-          already encumbered.
+          <strong className="text-foreground">Multi-wallet tip:</strong> Use two
+          browser profiles (or switch accounts). Profile 1 = supplier (prepare +
+          register + confirm). Profile 2 = obligor (sign only). Any profile can
+          call Finance A then B. Protocol B should revert if A already
+          encumbered.
         </div>
       </CardContent>
     </Card>

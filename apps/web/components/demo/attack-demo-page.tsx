@@ -582,8 +582,8 @@ export function AttackDemoPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card className="overflow-hidden border-border/80 shadow-sm">
-          <CardHeader className="border-b bg-gradient-to-br from-[#102a26] to-[#1a3f38] text-white">
+        <Card className="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
+          <CardHeader className="rounded-none border-b bg-gradient-to-br from-[#102a26] to-[#1a3f38] py-6 text-white">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold tracking-[0.14em] text-emerald-200/90 uppercase">
@@ -604,7 +604,7 @@ export function AttackDemoPage() {
               </span>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5 pt-6">
+          <CardContent className="space-y-5 py-6">
             <dl className="grid gap-3 sm:grid-cols-2">
               <Field
                 label="Invoice ref"
