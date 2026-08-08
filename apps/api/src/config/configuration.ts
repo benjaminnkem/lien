@@ -1,16 +1,44 @@
+function parseDatabaseUrl(url: string | undefined) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return {
+      host: u.hostname,
+      port: parseInt(u.port || '5432', 10),
+      username: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+      name: u.pathname.replace(/^\//, '') || 'lien',
+    };
+  } catch {
+    return null;
+  }
+}
+
+const databaseUrl = parseDatabaseUrl(process.env.DATABASE_URL);
+
 export default () => ({
   port: parseInt(process.env.PORT ?? '3001', 10),
   nodeEnv: process.env.NODE_ENV ?? 'development',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
   database: {
-    driver: process.env.DATABASE_DRIVER ?? 'sqlite',
+    // Prefer postgres when DATABASE_URL is set (Render/Railway/etc.)
+    driver:
+      process.env.DATABASE_DRIVER ??
+      (databaseUrl ? 'postgres' : 'sqlite'),
     path: process.env.DATABASE_PATH ?? 'data/lien.sqlite',
-    host: process.env.DATABASE_HOST ?? 'localhost',
-    port: parseInt(process.env.DATABASE_PORT ?? '5432', 10),
-    username: process.env.DATABASE_USER ?? 'postgres',
-    password: process.env.DATABASE_PASSWORD ?? '',
-    name: process.env.DATABASE_NAME ?? 'lien',
+    host: process.env.DATABASE_HOST ?? databaseUrl?.host ?? 'localhost',
+    port: parseInt(
+      process.env.DATABASE_PORT ?? String(databaseUrl?.port ?? 5432),
+      10,
+    ),
+    username:
+      process.env.DATABASE_USER ?? databaseUrl?.username ?? 'postgres',
+    password: process.env.DATABASE_PASSWORD ?? databaseUrl?.password ?? '',
+    name: process.env.DATABASE_NAME ?? databaseUrl?.name ?? 'lien',
     synchronize: (process.env.DATABASE_SYNC ?? 'true') === 'true',
+    ssl:
+      (process.env.DATABASE_SSL ??
+        (process.env.NODE_ENV === 'production' ? 'true' : 'false')) === 'true',
   },
   cleanverse: {
     docsUrl: process.env.CLEANVERSE_DOCS_URL ?? 'https://docs.cleanverse.com',

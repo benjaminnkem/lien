@@ -54,6 +54,14 @@ class EnvironmentVariables {
 
   @IsOptional()
   @IsString()
+  DATABASE_URL?: string;
+
+  @IsOptional()
+  @IsBooleanString()
+  DATABASE_SSL?: string;
+
+  @IsOptional()
+  @IsString()
   CLEANVERSE_DOCS_URL?: string;
 
   @IsOptional()

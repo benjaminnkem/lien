@@ -27,6 +27,7 @@ import { AppService } from './app.service';
         const synchronize = config.get<boolean>('database.synchronize') ?? true;
 
         if (driver === 'postgres') {
+          const useSsl = config.get<boolean>('database.ssl') === true;
           return {
             type: 'postgres' as const,
             host: config.get<string>('database.host'),
@@ -36,6 +37,9 @@ import { AppService } from './app.service';
             database: config.get<string>('database.name'),
             autoLoadEntities: true,
             synchronize,
+            ...(useSsl
+              ? { ssl: { rejectUnauthorized: false } }
+              : {}),
           };
         }
 
