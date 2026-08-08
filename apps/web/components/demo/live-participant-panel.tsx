@@ -5,9 +5,15 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { isAddress, type Address, type Hex } from "viem";
 import {
   AlertTriangle,
+  ArrowUpRight,
+  Check,
   CheckCircle2,
+  ExternalLink,
+  FileSignature,
+  Landmark,
   LoaderCircle,
   ShieldCheck,
+  Users,
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -425,270 +431,491 @@ export function LiveParticipantPanel() {
     stack?.chainId != null &&
     lien.chainId !== stack.chainId;
 
-  return (
-    <Card className="gap-0 overflow-hidden border-emerald-200/80 py-0 shadow-sm">
-      <CardHeader className="rounded-none border-b bg-gradient-to-r from-emerald-950 to-emerald-900 py-6 text-white">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-emerald-200/90 uppercase">
-              Live participant mode · wallet actions
-            </p>
-            <CardTitle className="mt-1 text-xl text-white">
-              Connect, sign, finance on testnet
-            </CardTitle>
-            <p className="mt-2 max-w-2xl text-sm text-emerald-100/85">
-              Real txs from your browser wallet. Supplier registers, obligor
-              signs EIP-712, any connected wallet can call Protocol A/B
-              adapters. Cleanverse gates run when{" "}
-              <code className="text-emerald-200">LIEN_TRUST_MODE=live</code>.
-            </p>
-          </div>
+  const steps = [
+    { id: "prepare", label: "Prepare", done: Boolean(terms) },
+    { id: "register", label: "Register", done: Boolean(obligationId && terms) },
+    { id: "sign", label: "Sign", done: Boolean(obligorSig) },
+    {
+      id: "confirm",
+      label: "Confirm",
+      done: Boolean(status && status.stateLabel !== "Unregistered"),
+    },
+    {
+      id: "finance",
+      label: "Finance",
+      done: status?.stateLabel === "Encumbered" || status?.stateLabel === "Discharged",
+    },
+    { id: "done", label: "Done", done: status?.stateLabel === "Discharged" },
+  ];
 
-          <ConnectButton
-            chainStatus="icon"
-            accountStatus="address"
-            showBalance={false}
-          />
+  const AddrField = ({
+    label,
+    value,
+    onChange,
+    hint,
+  }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    hint?: string;
+  }) => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-xs font-medium text-muted-foreground">
+          {label}
+        </Label>
+        {lien.address && (
+          <button
+            type="button"
+            className="text-[11px] font-medium text-emerald-800 hover:underline"
+            onClick={() => onChange(lien.address!)}
+          >
+            Use connected
+          </button>
+        )}
+      </div>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0x…"
+        className="h-10 font-mono text-xs"
+      />
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+    </div>
+  );
+
+  return (
+    <Card className="gap-0 overflow-hidden border-border/60 py-0 shadow-[0_20px_50px_-28px_rgba(16,42,38,0.45)] ring-1 ring-emerald-900/5">
+      <CardHeader className="rounded-none border-b border-white/10 bg-[linear-gradient(135deg,#0c221f_0%,#133e37_48%,#1a4f45_100%)] py-7 text-white">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-emerald-100/95 uppercase backdrop-blur-sm">
+              <span className="size-1.5 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(110,231,183,0.25)]" />
+              Live · Sepolia wallets
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">
+                Connect, sign, finance on testnet
+              </CardTitle>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-emerald-50/80">
+                Real browser-wallet transactions against deployed LIEN contracts.
+                Supplier registers · obligor signs EIP-712 · any wallet can call
+                Protocol A/B. CVI gates apply when trust mode is live.
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 rounded-xl border border-white/10 bg-black/20 p-2 backdrop-blur-sm">
+            <ConnectButton
+              chainStatus="full"
+              accountStatus="address"
+              showBalance={false}
+            />
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-5 py-6">
-        <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant={lien.ready || stack?.ready ? "default" : "secondary"}>
-            {lien.ready || stack?.ready
-              ? "Contracts configured"
-              : "Missing addresses"}
+
+      <CardContent className="space-y-6 py-6">
+        {/* Status strip */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant={lien.ready || stack?.ready ? "default" : "secondary"}
+            className="h-7 gap-1.5 rounded-full px-3"
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                lien.ready || stack?.ready ? "bg-emerald-300" : "bg-muted-foreground",
+              )}
+            />
+            {lien.ready || stack?.ready ? "Contracts ready" : "Addresses missing"}
           </Badge>
-          <Badge variant="outline">
-            API chain {stack?.chainId ?? "—"} · trust {stack?.trustMode ?? "—"}
+          <Badge variant="outline" className="h-7 rounded-full px-3 font-normal">
+            Chain {stack?.chainId ?? "—"}
           </Badge>
-          <Badge variant="outline">
-            wallet {lien.isConnected ? short(lien.address) : "not connected"}
+          <Badge variant="outline" className="h-7 rounded-full px-3 font-normal">
+            Trust {stack?.trustMode ?? "—"}
+          </Badge>
+          <Badge variant="outline" className="h-7 rounded-full px-3 font-mono text-[11px]">
+            {lien.isConnected ? short(lien.address) : "Wallet disconnected"}
           </Badge>
           {status && (
             <Badge
-              className={cn(
-                status.stateLabel === "Encumbered" &&
-                  "bg-amber-100 text-amber-900",
-              )}
               variant="outline"
+              className={cn(
+                "h-7 rounded-full px-3",
+                status.stateLabel === "Encumbered" &&
+                  "border-amber-300 bg-amber-50 text-amber-950",
+                status.stateLabel === "Verified" &&
+                  "border-emerald-300 bg-emerald-50 text-emerald-950",
+                status.stateLabel === "Discharged" &&
+                  "border-sky-300 bg-sky-50 text-sky-950",
+              )}
             >
               {status.stateLabel}
             </Badge>
           )}
         </div>
 
+        {/* Progress steps */}
+        <div className="flex flex-wrap gap-2">
+          {steps.map((s, i) => (
+            <div
+              key={s.id}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                s.done
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : "border-border/70 bg-muted/40 text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex size-5 items-center justify-center rounded-full text-[10px] font-bold",
+                  s.done
+                    ? "bg-emerald-700 text-white"
+                    : "bg-background text-muted-foreground ring-1 ring-border",
+                )}
+              >
+                {s.done ? <Check className="size-3" /> : i + 1}
+              </span>
+              {s.label}
+            </div>
+          ))}
+        </div>
+
         {wrongChain && (
-          <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            Switch wallet network to chain {stack?.chainId} (Sepolia for live).
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-200/90 bg-amber-50/90 px-4 py-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 gap-2 text-sm text-amber-950">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>
+                Wrong network. Switch your wallet to chain{" "}
+                <strong>{stack?.chainId}</strong> (Sepolia for live).
+              </span>
+            </div>
             <Button
               size="sm"
               variant="outline"
-              className="ml-auto"
+              className="shrink-0 border-amber-300 bg-white"
               onClick={() => void lien.ensureChain()}
             >
-              Switch
+              Switch network
             </Button>
           </div>
         )}
 
         {gateNote && (
-          <p className="text-xs text-muted-foreground">{gateNote}</p>
+          <div className="rounded-xl border border-border/70 bg-muted/30 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
+            <span className="font-medium text-foreground">Gate: </span>
+            {gateNote}
+          </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Supplier address</Label>
-            <Input
-              value={supplierInput}
-              onChange={(e) => setSupplierInput(e.target.value)}
-              placeholder="0x… supplier"
-              className="font-mono text-xs"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!lien.address}
-              onClick={() => lien.address && setSupplierInput(lien.address)}
-            >
-              Use connected
-            </Button>
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          {/* Parties + terms */}
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                  <Users className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold">Parties</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Two wallets recommended for supplier vs obligor
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-1">
+                <AddrField
+                  label="Supplier"
+                  value={supplierInput}
+                  onChange={setSupplierInput}
+                  hint="Connect as this address to register"
+                />
+                <AddrField
+                  label="Obligor"
+                  value={obligorInput}
+                  onChange={setObligorInput}
+                  hint="Connect as this address to sign EIP-712"
+                />
+                <AddrField
+                  label="Borrower (receives finance)"
+                  value={borrowerInput}
+                  onChange={setBorrowerInput}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                  <FileSignature className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold">Obligation terms</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Face value uses 6-decimal dUSDC units
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Invoice reference
+                  </Label>
+                  <Input
+                    value={invoiceRef}
+                    onChange={(e) => setInvoiceRef(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Face value
+                  </Label>
+                  <Input
+                    value={faceValue}
+                    onChange={(e) => setFaceValue(e.target.value)}
+                    className="h-10 font-mono text-xs"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Finance amount
+                  </Label>
+                  <Input
+                    value={financeAmount}
+                    onChange={(e) => setFinanceAmount(e.target.value)}
+                    className="h-10 font-mono text-xs"
+                  />
+                </div>
+              </div>
+            </section>
           </div>
-          <div className="space-y-1.5">
-            <Label>Obligor address</Label>
-            <Input
-              value={obligorInput}
-              onChange={(e) => setObligorInput(e.target.value)}
-              placeholder="0x… obligor (second wallet)"
-              className="font-mono text-xs"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={!lien.address}
-              onClick={() => lien.address && setObligorInput(lien.address)}
-            >
-              Use connected
-            </Button>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Borrower (finance recipient)</Label>
-            <Input
-              value={borrowerInput}
-              onChange={(e) => setBorrowerInput(e.target.value)}
-              className="font-mono text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Invoice reference</Label>
-            <Input
-              value={invoiceRef}
-              onChange={(e) => setInvoiceRef(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Face value (dUSDC 6 decimals)</Label>
-            <Input
-              value={faceValue}
-              onChange={(e) => setFaceValue(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Finance amount</Label>
-            <Input
-              value={financeAmount}
-              onChange={(e) => setFinanceAmount(e.target.value)}
-            />
+
+          {/* Obligation + actions */}
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-border/70 bg-[linear-gradient(180deg,rgba(16,42,38,0.04),transparent)] p-4 sm:p-5">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Obligation ID</h3>
+                {obligorSig && (
+                  <Badge className="rounded-full bg-emerald-100 text-emerald-900 hover:bg-emerald-100">
+                    Obligor signed
+                  </Badge>
+                )}
+              </div>
+              <code className="block break-all rounded-xl border border-border/60 bg-background/80 px-3 py-3 font-mono text-[11px] leading-relaxed sm:text-xs">
+                {obligationId ?? "Prepare terms to derive the canonical ID"}
+              </code>
+              {terms && (
+                <p className="mt-3 text-[11px] text-muted-foreground">
+                  Evidence {short(terms.evidenceRoot)} · Nonce{" "}
+                  {short(terms.nonce)}
+                </p>
+              )}
+              {lastTx && (
+                <a
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800 hover:underline"
+                  href={txUrl(lien.config.explorerBase, lastTx)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View last tx {short(lastTx)}
+                  <ExternalLink className="size-3" />
+                </a>
+              )}
+            </section>
+
+            <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                  <Landmark className="size-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold">Actions</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    Run in order · switch wallet when role changes
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <ActionRow
+                  step="1"
+                  title="Prepare terms"
+                  desc="Build EIP-712 payload + CVI context"
+                  loading={busy === "prepare"}
+                  disabled={!!busy || !lien.isConnected}
+                  onClick={() => void onPrepare()}
+                  icon={ShieldCheck}
+                />
+                <ActionRow
+                  step="2"
+                  title="Register as supplier"
+                  desc="On-chain ObligationRegistry.register"
+                  loading={busy === "register"}
+                  disabled={!!busy || !terms || !lien.isConnected}
+                  onClick={() => void onRegister()}
+                  icon={Wallet}
+                />
+                <ActionRow
+                  step="3"
+                  title="Sign as obligor"
+                  desc="EIP-712 economic terms only"
+                  loading={busy === "sign"}
+                  disabled={!!busy || !terms || !lien.isConnected}
+                  onClick={() => void onSignObligor()}
+                  icon={FileSignature}
+                />
+                <ActionRow
+                  step="4"
+                  title="Confirm on-chain"
+                  desc="Submit obligor signature"
+                  loading={busy === "confirm"}
+                  disabled={!!busy || !terms || !obligorSig || !lien.isConnected}
+                  onClick={() => void onConfirm()}
+                  icon={CheckCircle2}
+                />
+                <ActionRow
+                  step="5"
+                  title="Finance · Protocol A"
+                  desc="Reserve + fund + activate"
+                  loading={busy === "financeA"}
+                  disabled={!!busy || !obligationId || !lien.isConnected}
+                  onClick={() => void onFinance("A")}
+                  icon={Landmark}
+                  primary
+                />
+                <ActionRow
+                  step="6"
+                  title="Attack · Protocol B"
+                  desc="Should fail if already encumbered"
+                  loading={busy === "financeB"}
+                  disabled={!!busy || !obligationId || !lien.isConnected}
+                  onClick={() => void onFinance("B")}
+                  icon={ArrowUpRight}
+                  danger
+                />
+                <ActionRow
+                  step="7"
+                  title="Repay & discharge"
+                  desc="Release exclusive claim"
+                  loading={busy === "repay"}
+                  disabled={!!busy || !obligationId || !lien.isConnected}
+                  onClick={() => void onRepay()}
+                  icon={CheckCircle2}
+                />
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  disabled={!!busy || !obligationId || !lien.isConnected}
+                  onClick={() => void onSubordinate()}
+                >
+                  {busy === "sub" ? (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  ) : null}
+                  Subordinate
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  disabled={!!busy || !obligationId || !lien.isConnected}
+                  onClick={() => void onXchain()}
+                >
+                  {busy === "xchain" ? (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  ) : null}
+                  X-chain mock
+                </Button>
+              </div>
+            </section>
           </div>
         </div>
 
-        <div className="rounded-xl border border-border/70 bg-muted/20 p-3 text-xs">
-          <div className="font-medium">Obligation</div>
-          <div className="mt-1 font-mono break-all">
-            {obligationId ?? "Prepare terms to derive ID"}
-          </div>
-          {terms && (
-            <div className="mt-2 text-muted-foreground">
-              evidence {short(terms.evidenceRoot)} · nonce {short(terms.nonce)}
-              {obligorSig ? " · obligor sig ready" : ""}
-            </div>
-          )}
-          {lastTx && stack && (
-            <a
-              className="mt-2 inline-flex items-center gap-1 text-emerald-800 underline"
-              href={txUrl(lien.config.explorerBase, lastTx)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Last tx {short(lastTx)}
-            </a>
-          )}
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Button
-            disabled={!!busy || !lien.isConnected}
-            onClick={() => void onPrepare()}
-          >
-            {busy === "prepare" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="size-4" />
-            )}
-            1 · Prepare terms
-          </Button>
-          <Button
-            disabled={!!busy || !terms || !lien.isConnected}
-            onClick={() => void onRegister()}
-          >
-            {busy === "register" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <Wallet className="size-4" />
-            )}
-            2 · Register (supplier)
-          </Button>
-          <Button
-            disabled={!!busy || !terms || !lien.isConnected}
-            onClick={() => void onSignObligor()}
-          >
-            {busy === "sign" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : null}
-            3 · Sign (obligor)
-          </Button>
-          <Button
-            disabled={!!busy || !terms || !obligorSig || !lien.isConnected}
-            onClick={() => void onConfirm()}
-          >
-            {busy === "confirm" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="size-4" />
-            )}
-            4 · Confirm on-chain
-          </Button>
-          <Button
-            disabled={!!busy || !obligationId || !lien.isConnected}
-            onClick={() => void onFinance("A")}
-          >
-            {busy === "financeA" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : null}
-            5 · Finance Protocol A
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={!!busy || !obligationId || !lien.isConnected}
-            onClick={() => void onFinance("B")}
-          >
-            {busy === "financeB" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : null}
-            6 · Attack Protocol B
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={!!busy || !obligationId || !lien.isConnected}
-            onClick={() => void onRepay()}
-          >
-            {busy === "repay" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : null}
-            7 · Repay & discharge
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!!busy || !obligationId || !lien.isConnected}
-            onClick={() => void onSubordinate()}
-          >
-            {busy === "sub" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : null}
-            Subordinate claim
-          </Button>
-          <Button
-            variant="outline"
-            disabled={!!busy || !obligationId || !lien.isConnected}
-            onClick={() => void onXchain()}
-          >
-            {busy === "xchain" ? (
-              <LoaderCircle className="size-4 animate-spin" />
-            ) : null}
-            Cross-chain mock
-          </Button>
-        </div>
-
-        <div className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-          <strong className="text-foreground">Multi-wallet tip:</strong> Use two
-          browser profiles (or switch accounts). Profile 1 = supplier (prepare +
-          register + confirm). Profile 2 = obligor (sign only). Any profile can
-          call Finance A then B. Protocol B should revert if A already
-          encumbered.
+        <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <strong className="text-foreground">Multi-wallet tip. </strong>
+          Use two browser profiles (or switch accounts). Profile 1 = supplier
+          (prepare → register → confirm). Profile 2 = obligor (sign only). Any
+          profile can finance A then attack with B — B should revert if A
+          already encumbered.
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ActionRow({
+  step,
+  title,
+  desc,
+  loading,
+  disabled,
+  onClick,
+  icon: Icon,
+  primary,
+  danger,
+}: {
+  step: string;
+  title: string;
+  desc: string;
+  loading: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  primary?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all",
+        "disabled:cursor-not-allowed disabled:opacity-45",
+        primary &&
+          "border-emerald-800/20 bg-emerald-900 text-white hover:bg-emerald-800",
+        danger &&
+          !primary &&
+          "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-50",
+        !primary &&
+          !danger &&
+          "border-border/70 bg-background hover:border-emerald-200 hover:bg-emerald-50/40",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
+          primary && "bg-white/15 text-white",
+          danger && !primary && "bg-rose-100 text-rose-800",
+          !primary && !danger && "bg-muted text-muted-foreground",
+        )}
+      >
+        {loading ? (
+          <LoaderCircle className="size-4 animate-spin" />
+        ) : (
+          step
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-sm font-semibold">
+          <Icon className="size-3.5 opacity-80" />
+          {title}
+        </span>
+        <span
+          className={cn(
+            "mt-0.5 block text-[11px]",
+            primary ? "text-emerald-100/80" : "text-muted-foreground",
+          )}
+        >
+          {desc}
+        </span>
+      </span>
+    </button>
   );
 }

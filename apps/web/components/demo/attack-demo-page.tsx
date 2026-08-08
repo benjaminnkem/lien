@@ -490,103 +490,131 @@ export function AttackDemoPage() {
   const gates = seed?.gates ?? financeA?.gates ?? [];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-emerald-900 uppercase">
+    <div className="relative mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* soft page backdrop */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] bg-[radial-gradient(ellipse_at_top,rgba(16,42,38,0.07),transparent_60%)]" />
+
+      <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-2xl">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50/90 px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-emerald-900 uppercase shadow-sm">
             <Sparkles className="size-3.5" />
-            Live wallets + operator demo
+            Demo control room
           </div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-            Obligation passport + dual-protocol attack
+          <h1 className="font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+            One obligation.{" "}
+            <span className="text-emerald-800">One active claim.</span>
           </h1>
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            Participants connect wallets on testnet for real register / sign /
-            finance txs. Operator seed tools below remain for local Hardhat
-            rehearsals.
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground sm:text-[1.05rem]">
+            Live wallets on Sepolia for real register / sign / finance. Operator
+            tools below for deterministic Hardhat rehearsals.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => void refreshStack()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-full"
+            onClick={() => void refreshStack()}
+          >
             <RefreshCw className="size-3.5" />
-            Stack
+            Refresh stack
           </Button>
           {obligationId && (
             <>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-9 rounded-full"
                 onClick={() => exportPack("json")}
               >
                 <Download className="size-3.5" />
-                Export JSON
+                JSON
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="h-9 rounded-full"
                 onClick={() => exportPack("csv")}
               >
                 <Download className="size-3.5" />
-                Export CSV
+                CSV
               </Button>
             </>
           )}
         </div>
-      </div>
+      </header>
 
-      <Card className="border-border/70">
-        <CardContent className="flex flex-wrap items-center gap-3 py-4 text-sm">
-          <Badge variant={stack?.ready ? "default" : "secondary"}>
-            {stack?.ready ? "LienGuard ready" : "Not configured"}
-          </Badge>
-          <Badge variant="outline">trust: {stack?.trustMode ?? "—"}</Badge>
-          <Badge variant="outline">
-            rail: {stack?.settlementRail?.rail ?? "—"}
-            {stack?.settlementRail?.labeledMock ? " (mock)" : ""}
-          </Badge>
-          <span className="text-muted-foreground">
-            chain {stack?.chainId ?? "—"} · guard {short(stack?.guard)}
-          </span>
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-card/80 px-4 py-3 shadow-sm backdrop-blur-sm">
+        <Badge
+          variant={stack?.ready ? "default" : "secondary"}
+          className="h-7 gap-1.5 rounded-full px-3"
+        >
+          <span
+            className={cn(
+              "size-1.5 rounded-full",
+              stack?.ready ? "bg-emerald-300" : "bg-muted-foreground",
+            )}
+          />
+          {stack?.ready ? "LienGuard ready" : "Not configured"}
+        </Badge>
+        <Badge variant="outline" className="h-7 rounded-full px-3 font-normal">
+          Trust {stack?.trustMode ?? "—"}
+        </Badge>
+        <Badge variant="outline" className="h-7 rounded-full px-3 font-normal">
+          {stack?.settlementRail?.rail ?? "rail —"}
+          {stack?.settlementRail?.labeledMock ? " · mock" : ""}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          chain {stack?.chainId ?? "—"} · guard {short(stack?.guard)}
+        </span>
+      </div>
 
       <LiveParticipantPanel />
 
-      <div className="border-t border-border/60 pt-6">
-        <h2 className="font-heading text-xl font-semibold tracking-tight">
-          Operator demo (API seed · local Hardhat)
-        </h2>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Deterministic seed with server key for rehearsals. Prefer live
-          participant mode above for real wallets on Sepolia.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        {claimGraph.map((step, i) => (
-          <div
-            key={step.label}
-            className={cn(
-              "rounded-xl border px-3 py-3 text-sm",
-              step.done
-                ? "border-emerald-200 bg-emerald-50/80 text-emerald-950"
-                : "border-border/70 bg-muted/30 text-muted-foreground",
-            )}
-          >
-            <div className="text-[10px] font-semibold tracking-wider uppercase opacity-70">
-              Step {i + 1}
-            </div>
-            <div className="mt-1 font-medium">{step.label}</div>
+      <section className="space-y-5 rounded-3xl border border-border/70 bg-card/50 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+              Operator path
+            </p>
+            <h2 className="font-heading text-xl font-semibold tracking-tight">
+              API seed · Hardhat rehearsal
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Deterministic server-side seed for demos without switching wallets.
+              Prefer live mode above for real participant flows.
+            </p>
           </div>
-        ))}
-      </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {claimGraph.map((step, i) => (
+            <div
+              key={step.label}
+              className={cn(
+                "relative overflow-hidden rounded-2xl border px-3.5 py-3.5 text-sm transition-colors",
+                step.done
+                  ? "border-emerald-200 bg-emerald-50/90 text-emerald-950"
+                  : "border-border/70 bg-muted/25 text-muted-foreground",
+              )}
+            >
+              <div className="text-[10px] font-semibold tracking-wider uppercase opacity-70">
+                Step {i + 1}
+              </div>
+              <div className="mt-1 font-medium leading-snug">{step.label}</div>
+              {step.done && (
+                <CheckCircle2 className="absolute top-3 right-3 size-4 text-emerald-700/80" />
+              )}
+            </div>
+          ))}
+        </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card className="gap-0 overflow-hidden border-border/80 py-0 shadow-sm">
-          <CardHeader className="rounded-none border-b bg-gradient-to-br from-[#102a26] to-[#1a3f38] py-6 text-white">
+        <Card className="gap-0 overflow-hidden border-border/70 py-0 shadow-[0_18px_40px_-28px_rgba(16,42,38,0.35)]">
+          <CardHeader className="rounded-none border-b border-white/10 bg-[linear-gradient(135deg,#0c221f_0%,#133e37_50%,#1a4f45_100%)] py-6 text-white">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold tracking-[0.14em] text-emerald-200/90 uppercase">
+                <p className="text-[11px] font-semibold tracking-[0.14em] text-emerald-200/90 uppercase">
                   Obligation passport
                 </p>
                 <CardTitle className="mt-1 text-xl text-white">
@@ -596,7 +624,7 @@ export function AttackDemoPage() {
               </div>
               <span
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                  "rounded-full border px-2.5 py-1 text-xs font-semibold shadow-sm",
                   stateTone(stateLabel),
                 )}
               >
@@ -1086,10 +1114,12 @@ export function AttackDemoPage() {
           </div>
         </div>
       </div>
+      </section>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <ArrowRight className="size-4" />
-        Race-safety: Hardhat tests — competing reservations, only one succeeds.
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
+        <ArrowRight className="size-4 text-emerald-800" />
+        Race-safety proven in Hardhat tests — competing reservations, only one
+        succeeds.
       </div>
     </div>
   );
@@ -1170,22 +1200,31 @@ function ProtocolCard({
   result: React.ReactNode;
 }) {
   return (
-    <Card className="border-border/80">
-      <CardHeader className="pb-2">
+    <Card
+      className={cn(
+        "gap-0 overflow-hidden border-border/70 py-0 shadow-sm",
+        accent === "emerald" && "ring-1 ring-emerald-900/5",
+        accent === "rose" && "ring-1 ring-rose-900/5",
+      )}
+    >
+      <CardHeader className="space-y-1 border-b border-border/50 bg-muted/20 py-4">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Icon
+          <span
             className={cn(
-              "size-4",
-              accent === "emerald" ? "text-emerald-700" : "text-rose-700",
+              "flex size-8 items-center justify-center rounded-lg",
+              accent === "emerald" && "bg-emerald-50 text-emerald-800",
+              accent === "rose" && "bg-rose-50 text-rose-800",
             )}
-          />
+          >
+            <Icon className="size-4" />
+          </span>
           {title}
         </CardTitle>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
+        <p className="pl-10 text-xs text-muted-foreground">{subtitle}</p>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 py-4">
         <Button
-          className="w-full"
+          className="h-10 w-full"
           variant={accent === "rose" ? "destructive" : "default"}
           disabled={disabled}
           onClick={onAction}
@@ -1201,18 +1240,18 @@ function ProtocolCard({
 
 function ResultOk({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-950">
-      <div className="text-sm font-bold">{title}</div>
-      <p className="mt-1 text-xs opacity-90">{detail}</p>
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-emerald-950">
+      <div className="text-sm font-bold tracking-wide">{title}</div>
+      <p className="mt-1 text-xs leading-relaxed opacity-90">{detail}</p>
     </div>
   );
 }
 
 function ResultFail({ title, detail }: { title: string; detail: string }) {
   return (
-    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-950">
-      <div className="text-sm font-bold">{title}</div>
-      <p className="mt-1 text-xs opacity-90">{detail}</p>
+    <div className="rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-rose-950">
+      <div className="text-sm font-bold tracking-wide">{title}</div>
+      <p className="mt-1 text-xs leading-relaxed opacity-90">{detail}</p>
     </div>
   );
 }
