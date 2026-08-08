@@ -6,14 +6,44 @@ import {
   darkTheme,
   lightTheme,
 } from "@rainbow-me/rainbowkit";
-import { ReactLenis } from "lenis/react";
-import { useState, type ReactNode } from "react";
+import { ThemeProvider, useTheme } from "next-themes";
+import { useEffect, useState, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { wagmiConfig } from "@/lib/wagmi";
 import "@rainbow-me/rainbowkit/styles.css";
+
+function RainbowKitThemeBridge({ children }: { children: ReactNode }) {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const mode = mounted && resolvedTheme === "dark" ? "dark" : "light";
+
+  return (
+    <RainbowKitProvider
+      initialChain={sepolia}
+      theme={
+        mode === "dark"
+          ? darkTheme({
+              accentColor: "#74f2c5",
+              borderRadius: "medium",
+            })
+          : lightTheme({
+              accentColor: "#133e37",
+              borderRadius: "medium",
+            })
+      }
+    >
+      {children}
+    </RainbowKitProvider>
+  );
+}
 
 export function AppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -33,29 +63,22 @@ export function AppProviders({ children }: { children: ReactNode }) {
   );
 
   return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <RainbowKitProvider
-            initialChain={sepolia}
-            theme={{
-              lightMode: lightTheme({
-                accentColor: "#133e37",
-                borderRadius: "medium",
-              }),
-              darkMode: darkTheme({
-                accentColor: "#74f2c5",
-                borderRadius: "medium",
-              }),
-            }}
-          >
-            {/* <ReactLenis root options={{ autoRaf: true, lerp: 0.09 }}>
-            </ReactLenis> */}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <WagmiProvider config={wagmiConfig}>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <RainbowKitThemeBridge>
               {children}
-            <Toaster richColors position="top-right" closeButton />
-          </RainbowKitProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+              <Toaster richColors position="top-right" closeButton />
+            </RainbowKitThemeBridge>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ThemeProvider>
   );
 }

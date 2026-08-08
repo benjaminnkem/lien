@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Home, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const roles = [
@@ -19,7 +20,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/65 bg-background/82 backdrop-blur-xl supports-[backdrop-filter]:bg-background/72">
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-          <span className="relative flex size-9 items-center justify-center overflow-hidden rounded-xl bg-[#102a26] text-sm font-semibold text-white shadow-sm">
+          <span className="relative flex size-9 items-center justify-center overflow-hidden rounded-xl bg-[#102a26] text-sm font-semibold text-white shadow-sm dark:bg-emerald-950 dark:ring-1 dark:ring-emerald-400/20">
             <span className="absolute -right-2 -bottom-2 size-6 rounded-full bg-[#74f2c5]/60 blur-sm transition-transform group-hover:scale-125" />
             <span className="relative">L</span>
           </span>
@@ -73,15 +74,15 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="hidden shrink-0 md:block">
-          <ConnectButton
-            showBalance={false}
-            chainStatus="icon"
-            accountStatus="address"
-          />
-        </div>
-        <div className="flex size-2 shrink-0 items-center md:hidden">
-          <span className="size-2 animate-pulse rounded-full bg-emerald-500" />
+        <div className="flex shrink-0 items-center gap-2">
+          <ThemeToggle />
+          <div className="hidden md:block">
+            <ConnectButton
+              showBalance={false}
+              chainStatus="icon"
+              accountStatus="address"
+            />
+          </div>
         </div>
       </div>
     </header>

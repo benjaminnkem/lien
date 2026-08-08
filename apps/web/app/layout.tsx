@@ -22,7 +22,7 @@ const mono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "LIEN — Stop double-spending the real-world asset",
+    default: "LIEN | Stop double-spending the real-world asset",
     template: "%s · LIEN",
   },
   description:
@@ -37,6 +37,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={cn(
         "h-full antialiased",
         sans.variable,
