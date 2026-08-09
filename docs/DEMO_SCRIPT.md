@@ -1,30 +1,42 @@
 # LIEN — Demo script
 
-Spoken script for `/demo`. Write like a conversation, not a product video.
+Spoken script for the live demo. Conversational, not a product video.
+
+**Surfaces**
+
+| URL | Who | What |
+| --- | --- | --- |
+| `/` | Everyone | Story + pitch |
+| `/demo` | **Supplier** | Prepare → register → **share passport link** |
+| `/o/0x…` | **Obligor** (then anyone) | Sign & confirm → finance A → attack B → repay |
 
 **Total time (live path):** ~5–7 minutes including wallet confirms.  
-**Fallback (operator seed):** ~90–120 seconds if MetaMask is flaky.
+**Fast path if wallets flake:** open a pre-registered `/o/0x…` you prepared offline, jump to confirm/finance.
+
+No em dashes in spoken lines below (use periods, commas, or “to”).
 
 ---
 
 ## Before you walk up (60s silent)
 
-- [ ] Hosted web is up; `/demo` loads without errors  
-- [ ] API stack badge: **LienGuard ready**, trust mode known (`live` or `demo`)  
-- [ ] MetaMask on **Sepolia**, two accounts ready (Supplier + Obligor) with a little ETH  
-- [ ] Optional: Protocol A liquidity already funded on DemoFinanceA (if A fails with “insufficient,” top up once offline)  
-- [ ] Browser zoom comfortable; hide tabs; pin MetaMask  
-- [ ] One clean obligation (or plan to use a **new nonce** / prepare again if you already encumbered this morning)
+- [ ] Hosted web + API up; `/demo` shows **LienGuard ready**  
+- [ ] Trust mode known (`live` or `demo`)  
+- [ ] MetaMask on **Sepolia**, two profiles or accounts: **Supplier** + **Obligor**, both with a little ETH  
+- [ ] Prefer **two browser profiles** (Chrome profiles or one normal + one private) so you never switch accounts mid-tab  
+- [ ] Optional: DemoFinanceA has demo liquidity (if A reverts on “insufficient,” top up offline once)  
+- [ ] Fresh invoice ref / prepare if you already encumbered this ID earlier today  
+- [ ] Optional backup: a known passport URL from a dry run sitting in notes  
 
 **Decide the path:**
 
 | Situation | Use |
 | --- | --- |
-| Judges care about “real wallets / real txs” | **Live · Sepolia** (top panel) |
-| Wi‑Fi bad, wallets stuck, time crunch | **Operator path** (seed below) — still show A then B |
+| Full story, multi-party | **Supplier on `/demo` → share → obligor on `/o/[id]`** |
+| MetaMask dying on account switch | **Skip switching.** Open passport in second window with obligor wallet already connected |
+| Time crunch | Land on a **pre-registered** `/o/0x…` and do confirm → A → B only |
 
-Do **not** apologize into the demo. If you switch paths:  
-> “I’ll use the operator seed so we stay on the protocol story instead of wallet UX.”
+Do not apologize into the demo. If you cut a step:  
+> “I’ll jump to the passport so we stay on the claim story, not wallet UX.”
 
 ---
 
@@ -35,187 +47,197 @@ Do **not** apologize into the demo. If you switch paths:
 > Blockchains are really good at one thing: you can’t spend the same token twice.  
 > What they’re *not* good at is the asset *under* the token.  
 > Same invoice. Two different PDFs. Two lending apps. Both think they’re first.  
-> **LIEN is the control plane that makes that fail on-chain — before the second funder sends money.**
+> **LIEN is the control plane that makes that fail on-chain, before the second funder sends money.**
 
 *Click **Demo** / open `/demo`.*
 
-> This is the control room. Top half is live wallets on Sepolia. Bottom half is a fast API seed if we need it.
+> Control room. Supplier starts here: prepare the claim, register it, share a link.  
+> The obligor never has to fight over the same MetaMask account on this page.
 
 ---
 
-## Path A — Live wallets (preferred)
+## Live path (preferred)
 
-### A1 · Frame the scene · ~20s
+### 1 · Frame the scene · ~20s
 
-*Point at the green “Live · Sepolia wallets” card.*
+*Point at **Live · Sepolia · supplier start**.*
 
-> Two roles. Supplier is the company that wants financing. Obligor is the buyer who actually owes the money.  
-> Financing protocols sit *outside* that relationship — they’re adapters that must ask LienGuard for exclusive access.
+> Two parties. **Supplier** wants financing on a receivable. **Obligor** is the buyer who actually owes the money.  
+> Lenders are separate adapters. They must ask **LienGuard** for exclusive access before funds move.
 
-*Connect wallet. Confirm chain badge is Sepolia / contracts ready.*
+*Connect **supplier** wallet. Confirm Sepolia / contracts ready.*
 
-> We’re on public testnet. Real signatures, real contract calls — not a slideshow.
+> Public testnet. Real txs, real signatures.
 
 ---
 
-### A2 · Same claim, different paperwork (the insight) · ~25s
+### 2 · Insight while preparing · ~25s
 
-*If the prepare UI shows dual docs / preview, use it. Otherwise say it while preparing:*
+*Fill obligor address (second wallet). Click **Prepare terms**.*
 
 > Most systems fingerprint the PDF. Change a margin, change the hash, look like a new asset.  
-> We fingerprint the **economic obligation** — who’s owed, who owes, how much, when, which refs.  
-> Document hash is stored for audit. It does **not** get a new Obligation ID.
+> We fingerprint the **economic obligation**: who is owed, who owes, how much, when, which refs.  
+> Document hash is for audit. It does **not** mint a new Obligation ID.
 
-*Click **Prepare terms** → wait for IDs.*
+*Point at Obligation ID when it appears.*
 
-> Same economics → same Obligation ID. That’s the whole trick.
-
----
-
-### A3 · Register (supplier) · ~30–45s
-
-*Ensure connected account is **Supplier**. Click **Register as supplier**. Confirm MetaMask.*
-
-> Supplier publishes the terms on-chain. Registration alone is not enough to finance — we still need the obligor to own the deal.
-
-*If CVI/trust live gates flash:*
-
-> Where Cleanverse is configured, participants need a real identity gate — not anonymous EOAs cosplaying as companies. Local seed can skip that; live path doesn’t fake it.
+> Same economics, same ID. That’s the whole trick.
 
 ---
 
-### A4 · Obligor signs · ~40–60s
+### 3 · Register as supplier · ~30–45s
 
-*Switch MetaMask account to **Obligor** (or second wallet). Click **Sign as obligor**. Sign EIP-712 typed data — pause so judges see the typed fields if the wallet shows them.*
+*Connected account must be **supplier**. Click **Register as supplier**. Confirm MetaMask.*
 
-> This is the obligor saying: “Yes, those economic terms are mine.”  
-> It’s EIP-712 — domain-bound to this registry and chain — not a free-form “I agree” string.
+> Supplier publishes terms on-chain. Registration alone is not financeable.  
+> We still need the obligor to own the economic deal.
 
-*Click **Confirm on-chain** (supplier or obligor, per your flow). Confirm tx.*
+*If CVI / trust live gates show:*
 
-> Now the obligation is **Verified**. Financeable. One passport, one active claim slot.
-
-*Glance at state badge: **Verified**.*
+> Where Cleanverse is configured, identity gates who may participate. We don’t fake that on live paths.
 
 ---
 
-### A5 · Protocol A finances · ~30–45s
+### 4 · Share the passport · ~20–30s
 
-*Any wallet with the right role for the demo adapters — typically connected as someone who can call finance. Click **Finance · Protocol A**. Confirm.*
+*After register, the green **Share with obligor** strip appears. Copy link or **Open passport**.*
 
-> Protocol A is just one financing venue. It calls LienGuard: reserve, move demo settlement, activate.  
-> Atomic. If funding fails, the reservation doesn’t stick half-done.
+> Here’s the multi-party handoff.  
+> Passport URL is `/o/` plus the Obligation ID. Terms load from chain.  
+> Obligor opens this on their own browser. No account switch theater.
 
-*Wait for success. Point at state: **Encumbered** / claim controller / secured amount if visible.*
+*Open `/o/0x…` in the second profile (obligor already connected) or hand the link to a co-presenter.*
 
-> Claim is live. History starts building on the passport.
-
----
-
-### A6 · The kill shot — Protocol B · ~30–40s
-
-*Click **Attack · Protocol B**. Confirm (or let it revert).*
-
-> Same obligation. Independent adapter. Protocol B thinks it can fund too.  
-> Watch — this should **fail before funds move**. Liquidity on B doesn’t leak out as a successful encumbrance.
-
-*When it fails / blocked toast / audit shows finance blocked:*
-
-> That’s the product. Not “we emailed compliance later.” **On-chain exclusive claim, second protocol out.**
-
-*Optional one-liner (only if it lands naturally):*
-
-> Ethereum can stop double-spending the token. Until something like this, nothing stopped two tokens — or two loans — on the same invoice.
+> Shared claim surface. Status, parties, face value, then the next legal action for this state.
 
 ---
 
-### A7 · Close the loop · ~25–35s
+### 5 · Obligor signs and confirms · ~45–70s
 
-*Click **Repay & discharge**. Confirm.*
+*On `/o/[id]`. Connect as **obligor** (must match the obligor field). Prefer **Sign & confirm (obligor)**.*
 
-> Debtor pays, controller discharges. State goes **Discharged** — history stays. You can refinance later under the rules; you can’t pretend the first claim never happened.
+> This is the obligor saying: those economic terms are mine.  
+> EIP-712, domain-bound to this registry and chain. Not a free-form “I agree” string.
 
-*Optional: JSON/CSV export if time:*
+*If MetaMask hangs: open the extension, clear pending, retry. Optional fallback: **Sign only**, then **Submit confirm tx**.*
 
-> And for ops or disputes, we can export an evidence pack without putting the full PDF on-chain.
+> After confirm, the claim is financeable. One passport, one exclusive claim slot.
+
+*Refresh if needed. Badge should show confirmed / Verified (or equivalent).*
 
 ---
 
-### A8 · Soft close · ~20s
+### 6 · Protocol A finances · ~30–45s
 
-> So for builders: integrate LienGuard the way you integrate an oracle — call it before you fund.  
-> SDK is public: `npm install lien-sdk`. Sepolia addresses are in the package.  
-> Important honesty: this is **protocol-level** encumbrance for integrated systems — not a claim that we’ve perfected a legal lien in every country.  
+*Still on passport (any connected wallet that can call the adapter). **Finance · Protocol A**.*
+
+> Protocol A is one financing venue. It calls LienGuard: reserve, move demo settlement, activate.  
+> Atomic. If funding fails, the reservation does not stick half-done.
+
+*State → **Encumbered**. Point at secured amount / controller if visible.*
+
+> Claim is live.
+
+---
+
+### 7 · The kill shot · Protocol B · ~30–40s
+
+***Attack · Protocol B**.*
+
+> Same obligation. Independent adapter. B thinks it can fund too.  
+> This should **fail before funds move**.
+
+*On blocked toast / revert:*
+
+> That’s the product. Not “we emailed compliance later.”  
+> **On-chain exclusive claim. Second protocol out.**
+
+*Optional closer line:*
+
+> Chains stop double-spending the token. Until something like this, nothing stopped two loans on the same invoice.
+
+---
+
+### 8 · Discharge · ~20–30s (if time)
+
+***Repay & discharge**.*
+
+> Debtor pays, controller discharges. **Discharged**. History stays.  
+> You can refinance under the rules later. You cannot pretend the first claim never happened.
+
+---
+
+### 9 · Soft close · ~20s
+
+> Builders: integrate LienGuard like an oracle. Call it before you fund.  
+> SDK is public: `npm install lien-sdk`. Sepolia addresses ship in the package.  
+> Honesty line: this is **protocol-level** encumbrance for integrated systems, not universal legal lien perfection in every jurisdiction.  
 > Happy to take questions.
 
 ---
 
-## Path B — Operator seed (fast fallback)
+## Fast path (wallets flaky or short slot)
 
-*Scroll to **Operator path · API seed · Hardhat rehearsal** (or use when stack is local Hardhat).*
+1. Offline: supplier already registered; you have `/o/0x…` ready.  
+2. Open passport with obligor → **Sign & confirm**.  
+3. **Finance A** → **Attack B** (the money shot).  
+4. Skip discharge if the clock is red.
 
-### B1 · Seed · ~15s
+Spoken bridge:
 
-*Click seed / create verified obligation.*
-
-> Same story, deterministic. Acme supplies Atlas — hundred thousand face, obligor already confirmed.  
-> Obligation passport lights up: **Verified**.
-
-*Point at dual document hashes if shown (Document A ≠ B, same Obligation ID).*
-
-> Two files. One economic ID.
-
-### B2 · A then B · ~40s
-
-*Protocol A finance → Encumbered.*  
-*Protocol B finance → blocked.*
-
-> A wins. B is rejected with zero successful fund movement. That’s the attack demo.
-
-### B3 · Discharge · ~15s
-
-*Repay / discharge.*
-
-> Clean exit. Claim history retained.
-
-### B4 · Only if asked / time left
-
-- Subordinate claim → “Disclosure of junior interest — exclusive first lien still on LienGuard.”  
-- Cross-chain mock → “Hashed clearance post/consume — **not a bridge**.”  
-- Attestations / analytics → “Export and ops surface, not a second source of truth.”
+> I’ve already registered a live obligation so we can spend the minutes on confirmation and the double-finance block.
 
 ---
 
 ## Timing cheat sheet
 
-| Block | Live | Operator |
+| Block | Full live | Fast path |
 | --- | --- | --- |
 | Open + problem | 0:40 | 0:30 |
-| Insight (ID ≠ PDF) | 0:25 | 0:20 |
-| Register / seed | 0:45 | 0:15 |
-| Obligor sign + confirm | 1:00 | — |
-| Protocol A | 0:40 | 0:25 |
-| Protocol B blocked | 0:35 | 0:25 |
-| Discharge + close | 0:45 | 0:30 |
-| **~Total** | **~5–6 min** | **~2 min** |
+| Insight + prepare | 0:30 | — |
+| Register + share | 0:50 | — |
+| Obligor sign + confirm | 1:00 | 0:50 |
+| Protocol A | 0:40 | 0:35 |
+| Protocol B blocked | 0:35 | 0:35 |
+| Discharge + close | 0:40 | 0:25 |
+| **~Total** | **~5–7 min** | **~3 min** |
 
-Leave **1–2 minutes** for questions inside a 7-minute slot.
+Leave **1–2 minutes** for questions in a 7-minute slot.
 
 ---
 
-## If something breaks (say this, then recover)
+## If something breaks
 
 | Symptom | Line | Move |
 | --- | --- | --- |
-| Wallet stuck / wrong chain | “Network UX — switching to operator seed so we don’t burn the slot.” | Path B |
-| Already encumbered | “This ID is already claimed — good, actually. Fresh prepare with a new nonce.” | Prepare again |
-| Protocol A reverts (liquidity) | “Adapter needs demo settlement — that’s venue plumbing, not the mutex.” | Retry A or show B fail on an already-A-encumbered seed |
-| CVI gate | “Identity gate failed the way it should for an unverified party.” | Use configured demo identities or explain and seed |
-| Explorer lag | “Tx is submitted; state will catch up — meanwhile here’s the intended transition.” | Show expected state machine verbally |
+| MetaMask stuck on sign | “Wallet queue, not the protocol. Clearing pending and retrying on the passport.” | Clear MetaMask queue; second profile; Sign only then Confirm |
+| Wrong account for obligor | “Signature must come from the obligor address on the terms.” | Switch to obligor on passport only |
+| Wrong chain | “Need Sepolia for this deploy.” | Switch network |
+| Already encumbered | “This ID is already claimed. Fresh prepare and register.” | New invoice ref on `/demo` |
+| Protocol A reverts (liquidity) | “Adapter plumbing, not the mutex.” | Retry A or demo B-fail on a known encumbered passport |
+| CVI gate | “Identity gate failed the way it should for an unverified party.” | Use configured identities or explain trust mode |
+| Obligation not found on `/o/…` | “Share after register so terms exist on-chain.” | Finish register; refresh passport |
+| Explorer lag | “Tx submitted; state will catch up.” | Narrate the intended transition |
+
+**Removed:** operator API seed / Hardhat panel on `/demo`. Fallback is a pre-made passport URL or contract tests offline (`pnpm test` in contracts), not a second UI path.
 
 ---
 
-## One-breath answers (don’t over-explain)
+## What each button means (say only if asked)
+
+| Action | Meaning |
+| --- | --- |
+| **Prepare terms** | Local/API build of economic terms + Obligation ID. No claim yet. |
+| **Register as supplier** | On-chain publish. Not financeable until obligor confirms. |
+| **Share / Open passport** | `/o/{id}` loads terms from chain for the other party. |
+| **Sign & confirm** | Obligor EIP-712 + on-chain confirm → financeable. |
+| **Finance · Protocol A** | Exclusive reserve + fund + activate → Encumbered. |
+| **Attack · Protocol B** | Second venue; should revert if A holds the claim. |
+| **Repay & discharge** | Release exclusive claim; history retained. |
+
+---
+
+## One-breath answers
 
 **“Is this a legal lien registry?”**  
 > No. Protocol-level exclusive claim for systems that integrate LienGuard.
@@ -224,16 +246,19 @@ Leave **1–2 minutes** for questions inside a 7-minute slot.
 > Hashes track files. Attackers regenerate files. Lenders care about economics.
 
 **“What does Cleanverse do?”**  
-> Who’s allowed to participate. LienGuard still decides who holds the claim.
+> Who is allowed to participate. LienGuard still decides who holds the claim.
 
 **“What if two protocols race?”**  
-> First successful reserve wins; second reverts. Atomic in the adapter.
+> First successful reserve wins. Second reverts. Atomic in the adapter.
+
+**“Why a separate passport URL?”**  
+> Multi-party without switching MetaMask accounts mid-flow. Obligor opens their own session.
 
 **“Cross-chain?”**  
-> Cross-protocol today. Same ID model can extend; the mock is not a bridge.
+> Cross-protocol today. Same ID model can extend. The mock is not a bridge.
 
 **“Where’s the code for integrators?”**  
-> `lien-sdk` on npm — `LienClient`, ABIs, Sepolia deployments.
+> `lien-sdk` on npm: `LienClient`, ABIs, Sepolia deployments.
 
 ---
 
@@ -243,16 +268,18 @@ Leave **1–2 minutes** for questions inside a 7-minute slot.
 - “This replaces banks / UCC filings.”  
 - “dUSDC is real dollars.”  
 - “Cross-chain bridge is production-ready.”  
-- Long architecture lectures before the B-fail moment.
+- Long architecture lectures before the B-fail moment.  
+- “Just switch accounts on the same page” as the happy path (use the passport).
 
 ---
 
-## Rehearsal checklist (run once day-of)
+## Rehearsal checklist (day-of)
 
-1. Full live path once, cold wallets.  
-2. Full operator seed once (backup muscle memory).  
-3. Practice the **B-fail sentence** until it sounds casual, not triumphant.  
-4. Practice the **honesty line** (protocol-level, not legal perfection) so judges don’t have to trap you.
+1. Full path once: `/demo` supplier → share → second profile `/o/…` → A → B.  
+2. Fast path once from a saved passport URL.  
+3. Practice the **B-fail sentence** until it sounds casual.  
+4. Practice the **honesty line** (protocol-level, not legal perfection).  
+5. Know how to clear a stuck MetaMask request in under 10 seconds.
 
 ---
 
@@ -262,5 +289,5 @@ Leave **1–2 minutes** for questions inside a 7-minute slot.
 | --- | --- |
 | [`PITCH.md`](../PITCH.md) | 30s / 90s / 3min variants |
 | [`JUDGE_QA.md`](../JUDGE_QA.md) | Deep technical Qs |
-| [`docs/INTEGRATOR.md`](./INTEGRATOR.md) | If a judge wants builder depth |
+| [`docs/INTEGRATOR.md`](./INTEGRATOR.md) | Builder depth |
 | npm `lien-sdk` | Install story in the close |
