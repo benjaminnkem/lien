@@ -69,7 +69,13 @@ Avoid SQLite on Render free disk — it is ephemeral.
 | `LIEN_TOKEN_ADDRESS` | `0x79037a0722985B2E2Cf66ADba9ebf6937d67123C` |
 | `LIEN_PRIORITY_BOOK_ADDRESS` | `0xf94295CD7CcF71A40b17511cA489374c61A02973` |
 | `LIEN_XCHAIN_MOCK_ADDRESS` | `0xd460cF41d4EB8EA8e1529Ed9785926dD9e7c8CD1` |
-| `LIEN_PRIVATE_KEY` | Optional — only if you need server-side operator txs |
+| `LIEN_PRIVATE_KEY` | **Optional** for live wallet demos (passport reads, browser txs). Required only for server-side seed/operator writes |
+
+**Readiness**
+
+- `ready: true` needs `LIEN_RPC_URL` + registry + guard addresses (and other LIEN_* addrs for full stack).
+- `operatorKeyConfigured: true` only when `LIEN_PRIVATE_KEY` is set. Passport `GET /lien/obligations/:id` does **not** need the private key.
+- If `ready: false` with addresses present, you almost always lack **`LIEN_RPC_URL`** (or it is empty on Render).
 
 ### Cleanverse (live CVI)
 

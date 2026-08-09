@@ -64,6 +64,9 @@ services:
         sync: false
       - key: CLEANVERSE_API_KEY
         sync: false
+      # Required for chain reads (passport, status). Use Alchemy/Infura/public Sepolia RPC.
+      - key: LIEN_RPC_URL
+        sync: false
       # Optional: only for server-side operator helpers (not needed for wallet live flow)
       - key: LIEN_PRIVATE_KEY
         sync: false
