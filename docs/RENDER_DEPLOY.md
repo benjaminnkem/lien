@@ -20,6 +20,9 @@ No Hardhat node is required. Contracts are on **Ethereum Sepolia**.
 | **Root Directory** | leave empty (repo root) |
 | **Build Command** | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter lien-sdk build && pnpm --filter api build` |
 | **Start Command** | `pnpm --filter api start:prod` |
+
+> **If build says `No projects matched the filters` or cannot find `lien-sdk`:**  
+> Your Render service still has the old build command (`@repo/sdk`). Open **Settings → Build & Deploy → Build Command** and paste the command above exactly. Blueprint/yaml edits do not always overwrite an existing service’s command.
 | **Health Check Path** | `/api/health` |
 | **Instance type** | Free or Starter |
 

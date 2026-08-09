@@ -15,7 +15,8 @@
     "contracts:compile": "pnpm --filter contracts compile",
     "contracts:test": "pnpm --filter contracts test",
     "sdk:build": "pnpm --filter lien-sdk build",
-    "sdk:pack": "pnpm --filter lien-sdk pack"
+    "sdk:pack": "pnpm --filter lien-sdk pack",
+    "render:build": "pnpm --filter lien-sdk build && pnpm --filter api build"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
