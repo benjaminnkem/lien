@@ -64,8 +64,9 @@ export function AttackDemoPage() {
             </span>
           </h1>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground sm:text-[1.05rem]">
-            Live wallets on Sepolia: register, obligor EIP-712 sign, finance
-            Protocol A, then watch Protocol B fail before funds move.
+            Supplier prepares and registers, then shares a passport link. Obligor
+            confirms on that page. Finance Protocol A, then watch Protocol B fail
+            before funds move.
           </p>
         </div>
         <Button

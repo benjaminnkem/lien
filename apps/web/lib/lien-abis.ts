@@ -77,6 +77,42 @@ export const obligationRegistryLiveAbi = [
     ],
     outputs: [{ type: "bytes32" }],
   },
+  {
+    type: "function",
+    name: "getObligation",
+    stateMutability: "view",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "obligationId", type: "bytes32" },
+          { name: "supplier", type: "address" },
+          { name: "obligor", type: "address" },
+          { name: "currency", type: "string" },
+          { name: "faceValue", type: "uint256" },
+          { name: "dueDate", type: "uint64" },
+          { name: "invoiceReference", type: "string" },
+          { name: "purchaseOrderReference", type: "string" },
+          { name: "evidenceRoot", type: "bytes32" },
+          { name: "jurisdiction", type: "string" },
+          { name: "version", type: "uint256" },
+          { name: "nonce", type: "bytes32" },
+          { name: "confirmed", type: "bool" },
+          { name: "cancelled", type: "bool" },
+          { name: "registeredAt", type: "uint64" },
+          { name: "confirmedAt", type: "uint64" },
+        ],
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "isFinanceable",
+    stateMutability: "view",
+    inputs: [{ name: "id", type: "bytes32" }],
+    outputs: [{ type: "bool" }],
+  },
 ] as const;
 
 export const demoFinanceLiveAbi = [
